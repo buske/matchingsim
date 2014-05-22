@@ -44,19 +44,35 @@ def load_vcf(filename):
             vcf.append(['chr'+info[0]] + [info[1]] + [info[3]])
     return vcf
 
-if __name__ == '__main__':
-    genome = load_genome('/filer/hg18/hg18.fa')
-    hgmd = load_hgmd('hgmd_pro_allmut_2013.4')
+def create_fa(filename,hgmd):
+    long = filter(lambda x:len(x[3]) >= 20, hgmd)
+    out = open(filename,'w')
+    for l in long:
+        out.write('>'+l[1]+'\n')
+        out.write(l[3] + '\n')
+    out.close()
+
+def test_accuracy(hgmd, genome):
     counter = 0
     for h in hgmd:
-        if h[3] and h[3] != '-' and genome[h[0]][int(h[1])-1:int(h[1])+len(h[3])-1].upper() != h[3]:
+        if not h[3] or h[3] == '-' or  genome[h[0]][int(h[1])-1:int(h[1])+len(h[3])-1].upper() == h[3].upper():
+            counter = counter + 1
+    return float(counter)/float(len(hgmd))
+    
+if __name__ == '__main__':
+    #genome = load_genome('/filer/hg18/hg18.fa')
+    #hgmd = load_hgmd('hgmd_pro_allmut_2013.4')
+    #genome = load_genome('/filer/hg19/hg19.fa')    
+#counter = 0
+   # for h in hgmd:
+    #    if h[3] and h[3] != '-' and genome[h[0]][int(h[1])-1:int(h[1])+len(h[3])-1].upper() != h[3]:
            #print h[3]
            #print genome[h[0]][int(h[1])-1:int(h[1])+len(h[3])-1] 
-           counter = counter + 1
+     #      counter = counter + 1
        # if i > 20: break
-    print 'hg18:'
-    print counter
-    print float(counter)/float(len(hgmd))
+    #print 'hg18:'
+    #print counter
+    #print float(counter)/float(len(hgmd))
     #counter = 0 
     #genome2 = load_genome('/filer/hg19/hg19.fa') 
     #for h in hgmd:
@@ -73,3 +89,5 @@ if __name__ == '__main__':
 
    # print counter
    # print float(counter)/float(len(vcf))
+
+   
