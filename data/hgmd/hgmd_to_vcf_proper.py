@@ -3,7 +3,7 @@ import sys
 import gzip
 
 from collections import defaultdict
-
+from sets import Set
 
 def load_genome(filename):
     """Return dict: sequence -> str from multiFASTA file"""
@@ -26,45 +26,104 @@ def load_genome(filename):
             genome[name] = ''.join(sequences)
     return genome
 
+class Entry:
+    def __init__(self, chrom, loc, ref, alt, pmid):
+        self.chrom = chrom
+        self.loc = loc
+        self.ref = ref
+        self.alt = alt
+        self.pmid = pmid
+    
+    def __str__(self):
+        return [self.chrom, self.loc, self.ref, self.alt, self.pmid].__str__()
 
+    def __repr__(self):
+        return self.__str__()
+ 
+class HGMD:
+    def __init__(self, filename):
+        self.entries = list(self.iter_lines(filename))
+    
+    def __iter__(self):
+        return iter(self.entries)
+   
+    def iter_lines(self, filename):
+         with open(filename) as hgmd:
+            for line in hgmd:
+                if line[0] == '#':continue
+                info = line.split('\t')
+                yield Entry(info[0],info[1],info[2],info[3],info[6])
+
+    def __str__(self):
+        return self.entries.__str__()
 
 #load hgmd and dummy values we'll need
 def load_hgmd(filename):
-    hgmd = []
-    with open(filename) as file:
-        for line in file:
-            if line[0] == '#':continue
-            info = line.split('\t')
-            hgmd.append([info[0]] + [info[1]] + ['.'] + info[2:4] + ['50','PASS','.','GT','./.']+info[5:7])
-    return hgmd 
-def load_vcf(filename):
+    return HGMD(filename).entries 
+
+def load_vcf_gz(filename):
     vcf = {}
+    for i in range(1,23):
+        vcf['chr'+str(i)] = []
+    vcf['chrX'] = []
+    vcf['chrY'] = []   
     with gzip.open(filename) as file:
         for line in file:
             if line[0] == '#':continue
             info = line.split('\t')
             chr = 'chr' + info[0]
-            vcf[chr].append([chr] + [info[1]] + info[3:4])
+            if chr in list(vcf):
+                vcf[chr].append([chr] + [info[1]] + info[3:4])
+    return vcf
+
+def load_vcf(filename):
+    vcf = {}
+    for i in range(1,23):
+        vcf['chr'+str(i)] = []
+    vcf['chrX'] = []
+    vcf['chrY'] = []   
+    with open(filename) as file:
+        for line in file:
+            if line[0] == '#':continue
+            info = line.split('\t')
+            chr = 'chr' + info[0]
+            if chr in list(vcf):
+                vcf[chr].append([chr] + [info[1]] + info[3:5])
     return vcf
 
 def create_fa(filename,hgmd):
-    long = filter(lambda x:len(x[3]) >= 20, hgmd)
+    long = filter(lambda x:len(x.ref) >= 20, hgmd)
     out = open(filename,'w')
     for l in long:
-        out.write('>'+l[1]+'\n')
-        out.write(l[3] + '\n')
+        out.write('>'+out.loc+'\n')
+        out.write(out.ref + '\n')
     out.close()
 
 def get_correct(hgmd, genome):
-    return filter(lambda x: x[3] and genome[x[0]][int(x[1])-1:int(x[1])+len(x[3])-1].upper() == x[3].upper(), hgmd)
+    return filter(lambda x: x.ref and genome[x.chrom][int(x.loc)-1:int(x.loc)+len(x.ref)-1].upper() == x.ref.upper(), hgmd)
 
 def test_accuracy(hgmd, genome):
     counter = 0
     for h in hgmd:
-        if not h[3] or h[3] == '-' or  genome[h[0]][int(h[1])-1:int(h[1])+len(h[3])-1].upper() == h[3].upper():
+        if not h.ref or h.ref == '-' or  genome[h.chrom][int(h.loc)-1:int(h.loc)+len(h.ref)-1].upper() == h.ref.upper():
             counter = counter + 1
     return float(counter)/float(len(hgmd))
-    
+  
+def found_vcf(entry,vcf):
+    for v in vcf[entry.chrom]:
+        if v[1] == entry.loc and v[2] == entry.ref and v[3] == entry.alt:
+            return True
+    return False
+
+def get_found_vcf(hgmd, vcf):
+    return filter(lambda x: found_vcf(x,vcf), hgmd)    
+ 
+def get_unique_diseases(hgmd):
+    s = Set()
+    for h in hgmd:
+        s.add(h.pmid)
+    return len(s)  
+ 
 if __name__ == '__main__':
     #genome = load_genome('/filer/hg18/hg18.fa')
     hgmd = load_hgmd('hgmd_pro_allmut_2013.4')
