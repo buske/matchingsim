@@ -151,7 +151,13 @@ def get_unique_diseases(hgmd):
     s = Set()
     for h in hgmd:
         s.add(h.pmid)
-    return len(s)  
+    return len(s) 
+
+def get_unique_omim(hgmd):
+    s = Set()
+    for h in hgmd:
+        s.add(h.omimid)
+    return len(s) 
 
 if __name__ == '__main__':
     #genome = load_genome('/filer/hg18/hg18.fa')
