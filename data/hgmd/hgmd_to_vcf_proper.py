@@ -50,18 +50,20 @@ class HGMD:
     
     @classmethod
     def write_vcf(cls, filename, entries):
-        with open(filename, 'w') as out:
+        with open(filename, 'a') as out:
             out.write('##fileformat=VCFv4.1\n')
             out.write('\t'.join(['#CHROM','POS','ID','REF','ALT','QUAL','FILTER', 'INFO', 'FORMAT', 'FIRST']) + '\n') 
             for e in entries:
-                out.write('\t'.join([e.chrom,e.loc,'.',e.ref,e.alt,'50','PASS','OMIM:' + e.omimid + ';PM:' + e.pmid,'GT','./.']))
-     
+                out.write('\t'.join([e.chrom[3:],e.loc,'.',e.ref,e.alt,'50','PASS','OMIM:' + e.omimid + ';PM:' + e.pmid,'GT','./.'])+'\n')
+            out.close()
+             
     def iter_lines(self, filename):
          with open(filename) as hgmd:
             for line in hgmd:
                 if line[0] == '#':continue
                 info = line.split('\t')
-                if len(info) < 8:continue
+                if len(info) < 8 or not info[7]:continue
+                if info[7][-1] == '\n': info[7] = info[7][:-1]
                 yield Entry(info[0],info[1],info[2],info[3],info[6], info[7])
 
     def __str__(self):
@@ -107,6 +109,21 @@ def create_fa(filename,hgmd):
         out.write('>'+out.loc+'\n')
         out.write(out.ref + '\n')
     out.close()
+
+def remove_dash(hgmd, genome):
+    new = []
+    for h in hgmd:
+        if h.ref == '-' or h.alt == '-':
+            nloc = str(int(h.loc) - 1)
+            nref = h.ref.strip('-')
+            nalt = h.alt.strip('-')
+            add = genome[h.chrom][int(nloc) - 1]
+            nref = add + nref
+            nalt = add + nalt
+            new.append(Entry(h.chrom,nloc,nref,nalt,h.pmid,h.omimid))
+        else:
+            new.append(Entry(h.chrom,h.loc,h.ref,h.alt,h.pmid,h.omimid))
+    return new
 
 def get_correct(hgmd, genome):
     return filter(lambda x: x.ref and genome[x.chrom][int(x.loc)-1:int(x.loc)+len(x.ref)-1].upper() == x.ref.upper(), hgmd)
