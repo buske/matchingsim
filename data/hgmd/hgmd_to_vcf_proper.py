@@ -54,7 +54,8 @@ class HGMD:
             out.write('##fileformat=VCFv4.1\n')
             out.write('\t'.join(['#CHROM','POS','ID','REF','ALT','QUAL','FILTER', 'INFO', 'FORMAT', 'FIRST']) + '\n') 
             for e in entries:
-                out.write('\t'.join([e.chrom[3:],e.loc,'.',e.ref,e.alt,'50','PASS','OMIM:' + e.omimid + ';PM:' + e.pmid,'GT','./.'])+'\n')
+                if e.loc:
+                    out.write('\t'.join([e.chrom[3:],e.loc,'.',e.ref,e.alt,'50','PASS','OMIM:' + e.omimid + ';PM:' + e.pmid,'GT','./.'])+'\n')
             out.close()
              
     def iter_lines(self, filename):
@@ -86,6 +87,18 @@ def load_vcf_gz(filename):
             if chr in list(vcf):
                 vcf[chr].append([chr] + [info[1]] + info[3:4])
     return vcf
+
+def load_hgmd_vcf(filename):
+    entries = []
+    with open(filename) as file:
+        for line in file:
+            info = line.split('\t')
+            if len(info) < 10: continue 
+            print line
+            omimid = info[7].split(';')[0].split(':')[1]
+            pmid = info[7].split(';')[1].split(':')[1]
+            entries.append(Entry('chr'+info[0],info[1],info[3],info[4],pmid,omimid))        
+    return entries    
 
 def load_vcf(filename):
     vcf = {}
