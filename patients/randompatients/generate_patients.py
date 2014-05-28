@@ -10,6 +10,7 @@ import sys
 import re
 import logging
 import random
+import gzip
 
 from collections import defaultdict
 
@@ -147,13 +148,16 @@ class HGMD:
          with open(filename) as hgmd:
             for line in hgmd:
                 if line == '\n': continue
+                if line[0] == '#': continue
                 info = line.split('\t')
-                #effect = info[7].split(';')[0][7:]       
-                yield Entry(info[0],info[1],info[3],info[4],effect,info[11],info[12][:-1])
+                effect = info[7].split(';')[0].split('=')[1]
+                omimid = info[7].split(';')[2].split(':')[1]
+                pmid = info[7].split(';')[3].split(':')[1]      
+                yield Entry(info[0],info[1],info[3],info[4],effect,pmid,omimid)
  
     def __str__(self):
         return self.entries.__str__()
-
+    
     def sample_disease(self, omim, effects=None):
         if effects:
             diseases = self.get_entries_effects(effects)
@@ -191,15 +195,16 @@ def annotate_patient(patient,hgmd,omim):
         file = open(patient, 'a')
         name = patient[:-4]
     elif patient[-7:] == '.vcf.gz':
-        file = open(patient, 'a')
+        file = gzip.open(patient, 'ab')
         name = patient[:-7]        
 
     dis, phenotypes = hgmd.sample_disease(omim)
-    file.write('\t'.join([e.chrom[3:],e.loc,'.',e.ref,e.alt,'50','PASS','.','GT','./.'])+'\n')
+    file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'50','PASS','.','GT','./.'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
     for p in phenotypes[1:]:
-        hpo.write(','+p)  
+        hpo.write(','+p) 
+    file.close() 
 
 def script(pheno_file, hgmd_file, patient_path):
     try:
@@ -230,5 +235,5 @@ if __name__ == '__main__':
     print "begun"
     mim = MIM('/dupa-filer/talf/matchingsim/patients/phenotype_annotation.tab')
     omim = filter(lambda d: d.db == 'OMIM',mim.diseases)
-    hgmd = HGMD('/dupa-filer/talf/matchingsim/data/hgmd/hgmd_correct.vcf')
-    #hgmd = filter(lambda d:d.omimid,hgmd.entries)
+    hgmd = HGMD('/dupa-filer/talf/matchingsim/data/hgmd/hgmd_correct.jv.vcf')
+    hgmd.entries = filter(lambda d:d.omimid,hgmd.entries)
