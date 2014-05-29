@@ -191,10 +191,10 @@ def annotate_patient(patient,hgmd,omim):
             print >> sys.stderr, "Incorrect file format, use .vcf.gz or .vcf"
     
     #find if .vcf or .vcf.gz
-    if patient[-4:] == '.vcf':
+    if patient.endswith('.vcf'):
         file = open(patient, 'a')
         name = patient[:-4]
-    elif patient[-7:] == '.vcf.gz':
+    elif patient.endswith('.vcf.gz'):
         file = gzip.open(patient, 'ab')
         name = patient[:-7]        
 
@@ -205,6 +205,11 @@ def annotate_patient(patient,hgmd,omim):
     for p in phenotypes[1:]:
         hpo.write(','+p) 
     file.close() 
+
+def annotate_patient_dir(pdir,hgmd,omim):
+    for f in os.path.listdir(pdir):
+        if os.path.isfile(os.path.join(pdir,f)) and (f.endswith('.vcf') or f.endswith('.vcf.gz')):
+            annotate_patient(os.path.join(pdir,f),hgmd,omim) 
 
 def script(pheno_file, hgmd_file, patient_path):
     try:

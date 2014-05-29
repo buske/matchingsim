@@ -137,20 +137,62 @@ def remove_dash(hgmd, genome):
         else:
             new.append(Entry(h.chrom,h.loc,h.ref,h.alt,h.pmid,h.omimid))
     return new
+   #[start, end)
+def intersect_neg(e, refbed):
+    for r in refbed[e.chrom]:
+        if max(int(e.loc)-1, r[1]) < min(int(e.loc)+max(len(e.ref), len(e.alt)) - 1, r[2]):
+            return True 
+    return False            
 
-def get_correct(hgmd, genome):
-    return filter(lambda x: x.ref and genome[x.chrom][int(x.loc)-1:int(x.loc)+len(x.ref)-1].upper() == x.ref.upper(), hgmd)
+def load_refbed(filename):
+    ref = {}
+    for i in range(1,23):
+        ref['chr'+str(i)] = []
+    ref['chrX'] = []
+    ref['chrY'] = []
+    with open(filename) as file:
+        for line in file:
+            info = line.split('\t')
+            if not info[0] in list(ref):
+                return ref
+            if info[5].strip('\n') == '-':
+                ref[info[0]].append([info[0],int(info[1]),int(info[2])])
+
+
+def reverse_complement(seq):
+    seq = seq[::-1]
+    sw = {'A':'T', 'T':'A','G':'C','C':'G'}
+    seq = map(lambda x: sw[x],seq)
+    return ''.join(seq) 
+ 
+def get_correct(hgmd, genome, refbed):
+    ret = []
+    counter = 0
+    for e in hgmd:
+        counter += 1
+        if counter % 100 == 0: print counter
+        #if it fits naively
+        if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == e.ref.upper():
+            ret.append(e)
+            continue    
+        #if it is snp, also try reversing ref and alt (for rare ref cases)
+        if len(e.ref) == 1 and len(e.alt) == 1 and e.ref != '-' and e.alt != '-':
+            if genome[e.chrom][int(e.loc)-1].upper() == e.alt.upper():
+                ret.append(Entry(e.chrom, e.loc, e.alt, e.ref, e.pmid, e.omimid))
+                continue
+        #multibase subsitution (i.e. no indel)
+        if len(e.ref) == len(e.alt) and e.ref != '-' and e.alt != '-'  and intersect_neg(e, refbed):
+            if genome[e.chrom][int(e.loc)-1].upper() == reverse_complement(e.alt.upper()):
+                ret.append(Entry(e.chrom, e.loc, reverse_complement(e.ref), reverse_complement(e.alt), e.pmid, e.omimid))
+                continue
+    return ret 
 
 def get_long(hgmd):
     return filter(lambda x: len(x.ref) >= 5, hgmd)  
 
-def test_accuracy(hgmd, genome):
-    counter = 0
-    for h in hgmd:
-        if not h.ref or h.ref == '-' or  genome[h.chrom][int(h.loc)-1:int(h.loc)+len(h.ref)-1].upper() == h.ref.upper():
-            counter = counter + 1
-    return float(counter)/float(len(hgmd))
-  
+def test_accuracy(hgmd, genome, refbed):
+    return float(len(get_correct(hgmd,genome,refbed)))/float(len(hgmd))    
+
 def found_vcf(entry,vcf):
     for v in vcf[entry.chrom]:
         if v[1] == entry.loc and v[2] == entry.ref and v[3] == entry.alt:
@@ -175,7 +217,7 @@ def get_unique_omim(hgmd):
 if __name__ == '__main__':
     #genome = load_genome('/filer/hg18/hg18.fa')
     hgmd = load_hgmd('hgmd_pro_allmut_2013.4')
-    
+    hgmd = filter(lambda x: x.ref and x.alt, hgmd) 
     #genome = load_genome('/filer/hg19/hg19.fa') 
     #dbsnp = load_vcf('dbSnp.vcf')   
     #vcf = load_vcf('/dupa-filer/talf/matchingsim/data/1000gp/samples/complete/HG00096.vcf.gz')
