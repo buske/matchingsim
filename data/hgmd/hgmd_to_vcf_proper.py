@@ -160,6 +160,7 @@ def load_refbed(filename):
 
 
 def reverse_complement(seq):
+    if seq == '-': return seq
     seq = seq[::-1]
     sw = {'A':'T', 'T':'A','G':'C','C':'G'}
     seq = map(lambda x: sw[x],seq)
@@ -170,7 +171,7 @@ def get_correct(hgmd, genome, refbed):
     counter = 0
     for e in hgmd:
         counter += 1
-        if counter % 100 == 0: print counter
+        if counter % 1000 == 0: print counter
         #if it fits naively
         if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == e.ref.upper():
             ret.append(e)
@@ -180,15 +181,19 @@ def get_correct(hgmd, genome, refbed):
             if genome[e.chrom][int(e.loc)-1].upper() == e.alt.upper():
                 ret.append(Entry(e.chrom, e.loc, e.alt, e.ref, e.pmid, e.omimid))
                 continue
-        #multibase subsitution (i.e. no indel)
-        if len(e.ref) == len(e.alt) and e.ref != '-' and e.alt != '-'  and intersect_neg(e, refbed):
-            if genome[e.chrom][int(e.loc)-1].upper() == reverse_complement(e.alt.upper()):
-                ret.append(Entry(e.chrom, e.loc, reverse_complement(e.ref), reverse_complement(e.alt), e.pmid, e.omimid))
-                continue
+        #anything involving negative strand; only want to check strand once
+        if intersect_neg(e,refbed):
+            if e.ref != '-':
+                if genome[e.chrom][int(e.loc)-1].upper() == reverse_complement(e.ref.upper()):
+                    ret.append(Entry(e.chrom, e.loc, reverse_complement(e.ref), reverse_complement(e.alt), e.pmid, e.omimid))
+                    continue
     return ret 
 
 def get_long(hgmd):
-    return filter(lambda x: len(x.ref) >= 5, hgmd)  
+    return filter(lambda x: len(x.ref) >= 5, hgmd) 
+
+def get_snp(hgmd):
+    return filter(lambda x: len(x.ref) == 1 and len(x.alt) == 1 and x.ref != '-' and x.alt != '-',hgmd) 
 
 def test_accuracy(hgmd, genome, refbed):
     return float(len(get_correct(hgmd,genome,refbed)))/float(len(hgmd))    

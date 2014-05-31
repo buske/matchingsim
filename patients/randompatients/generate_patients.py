@@ -207,7 +207,7 @@ def annotate_patient(patient,hgmd,omim):
     file.close() 
 
 def annotate_patient_dir(pdir,hgmd,omim):
-    for f in os.path.listdir(pdir):
+    for f in os.listdir(pdir):
         if os.path.isfile(os.path.join(pdir,f)) and (f.endswith('.vcf') or f.endswith('.vcf.gz')):
             annotate_patient(os.path.join(pdir,f),hgmd,omim) 
 
