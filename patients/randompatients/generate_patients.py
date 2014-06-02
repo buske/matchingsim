@@ -11,6 +11,7 @@ import re
 import logging
 import random
 import gzip
+import argparse
 
 from collections import defaultdict
 
@@ -224,21 +225,30 @@ def script(pheno_file, hgmd_file, patient_path):
     except FileNotFoundError:
         print >> sys.stderr, "HGMD file not found or invalid"
    
-    hgmd = filter(lambda d:d.omimid,hgmd.entries)         
+    hgmd.entries = filter(lambda d:d.omimid,hgmd.entries)         
     
     #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):
         print "Given a directory full of patients!"
         annotate_patient_dir(patient_path, hgmd, omim)
+    #if we are given a single file just annotate it normally
     elif os.path.isfile(patient_path):
         print "Given a single patient file!"
         annotate_patient(patient_path, hgmd, omim)
     else:
         print >> sys.stderr, "Patient file/folder not found or invalid"   
-   
+  
+def parse_args(args):
+    from argparse import ArgumentParser
+    parser = ArgumentParser(description='Generate randomly sampled sick patients')
+    parser.add_argument('pheno_file', metavar='PHENO', help='phenotype annotation tab file')
+    parser.add_argument('hgmd_file',metavar='HGMD', help='Annotated HGMD file in .vcf format')
+    parser.add_argument('patient_path',metavar='PATH', help='Path to a .vcf, .vcf.gz or a directory with these multiple of these in it')
+    return parser.parse_args(args)
+
+def main(args = sys.argv[1:]):
+    args = parse_args(args)
+    script(**vars(args))
+
 if __name__ == '__main__':
-    print "begun"
-    mim = MIM('/dupa-filer/talf/matchingsim/patients/phenotype_annotation.tab')
-    omim = filter(lambda d: d.db == 'OMIM',mim.diseases)
-    hgmd = HGMD('/dupa-filer/talf/matchingsim/data/hgmd/hgmd_correct.jv.vcf')
-    hgmd.entries = filter(lambda d:d.omimid,hgmd.entries)
+    sys.exit(main())

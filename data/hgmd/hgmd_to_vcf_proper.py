@@ -48,16 +48,21 @@ class HGMD:
     def __iter__(self):
         return iter(self.entries)
     
+    #NOTE: Jannovar messes up on chr17 41243453
     @classmethod
     def write_vcf(cls, filename, entries):
-        with open(filename, 'a') as out:
+        with open(filename, 'w') as out:
             out.write('##fileformat=VCFv4.1\n')
             out.write('\t'.join(['#CHROM','POS','ID','REF','ALT','QUAL','FILTER', 'INFO', 'FORMAT', 'FIRST']) + '\n') 
             for e in entries:
                 if e.loc:
                     out.write('\t'.join([e.chrom[3:],e.loc,'.',e.ref,e.alt,'50','PASS','OMIM:' + e.omimid + ';PM:' + e.pmid,'GT','./.'])+'\n')
             out.close()
-             
+    @classmethod
+    def write_vcf_17(cls, filename, entries):
+        final = filter(lambda x: x.chrom == 'chr17',entries)
+        HGMD.write_vcf(filename, final)
+
     def iter_lines(self, filename):
          with open(filename) as hgmd:
             for line in hgmd:
@@ -184,7 +189,7 @@ def get_correct(hgmd, genome, refbed):
         #anything involving negative strand; only want to check strand once
         if intersect_neg(e,refbed):
             if e.ref != '-':
-                if genome[e.chrom][int(e.loc)-1].upper() == reverse_complement(e.ref.upper()):
+                if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == reverse_complement(e.ref.upper()):
                     ret.append(Entry(e.chrom, e.loc, reverse_complement(e.ref), reverse_complement(e.alt), e.pmid, e.omimid))
                     continue
     return ret 
@@ -219,11 +224,15 @@ def get_unique_omim(hgmd):
         s.add(h.omimid)
     return len(s) 
 
+#what is currently being used for hgmd
+def current_hgmd(hgmd,genome,refbed):
+    hgmd = filter(lambda x: x.ref and x.alt and x.ref != '-', hgmd)
+    return get_correct(hgmd,genome,refbed)
+
 if __name__ == '__main__':
-    #genome = load_genome('/filer/hg18/hg18.fa')
     hgmd = load_hgmd('hgmd_pro_allmut_2013.4')
-    hgmd = filter(lambda x: x.ref and x.alt, hgmd) 
     #genome = load_genome('/filer/hg19/hg19.fa') 
+    #refbed = load_refbed('/dupa-filer/talf/matchingsim/data/refgene.bed')
     #dbsnp = load_vcf('dbSnp.vcf')   
     #vcf = load_vcf('/dupa-filer/talf/matchingsim/data/1000gp/samples/complete/HG00096.vcf.gz')
     #for v in vcf:
