@@ -93,6 +93,17 @@ def load_vcf_gz(filename):
                 vcf[chr].append([chr] + [info[1]] + info[3:4])
     return vcf
 
+def load_vcf_gz_entry(filename):
+    entries = []
+    with gzip.open(filename) as file:
+        for line in file:
+            if line[0] == '#': continue
+            info = line.split('\t')
+            chr = 'chr' + info[0]
+            entries.append(Entry(chr, info[1], info[3], info[4], 0, 0))
+    return entries
+
+
 def load_hgmd_vcf(filename):
     entries = []
     with open(filename) as file:

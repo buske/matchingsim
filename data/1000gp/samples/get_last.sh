@@ -1,6 +1,6 @@
 #!/usr/bin/
 #$ -V
-#$ -N "chr1"
+#$ -N "getlast"
 #$ -pe parallel "1"
 #$ -l h_vmem="4G"
 #$ -e /home/friedman/sge_logs/samples/

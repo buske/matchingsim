@@ -36,8 +36,6 @@ class Disease:
 class MIM:
     def __init__(self, filename):
         self.diseases = list(self.iter_diseases(filename))
-        for i in range(5):
-            logging.debug(self.diseases[i].__dict__)
 
     def __iter__(self):
         return iter(self.diseases)

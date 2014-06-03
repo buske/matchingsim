@@ -13,7 +13,7 @@ def get_names(file):
 			return info[MAN_COL:]
 
 def write_line(info, out, index):
-	out.write('\t'.join(info[0:8] + [info[index]])+'\n')
+	out.write('\t'.join(info[0:9] + [info[index]])+'\n')
 
 if __name__ == '__main__':
 	#with gzip.open(sys.argv[1],'rb') as file:
