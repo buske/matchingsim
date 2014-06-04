@@ -198,7 +198,7 @@ def annotate_patient(patient,hgmd,omim):
         name = patient[:-7]        
 
     dis, phenotypes = hgmd.sample_disease(omim)
-    file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'50','PASS','.','GT','./.'])+'\n')
+    file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'50','PASS','.','GT','1/0'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
     for p in phenotypes[1:]:
