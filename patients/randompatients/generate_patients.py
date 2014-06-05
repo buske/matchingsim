@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# OMIM parsing code taken from Orion Buske, original can be found at
+# OMIM, Orphanet  parsing code taken from Orion Buske, original can be found at
 # https://github.com/buske/udp-dating/blob/master/mim.py
 
 __author__ = 'Tal Friedman'
@@ -11,9 +11,9 @@ import re
 import logging
 import random
 import gzip
-import argparse
 
 from collections import defaultdict
+import xml.etree.ElementTree as ET
 
 FREQUENCIES = {'very rare':  0.01, 
                'rare':       0.05, 
@@ -25,6 +25,42 @@ FREQUENCIES = {'very rare':  0.01,
                'hallmark':   0.9, 
                'obligate':   1.0}
 fraction_frequency_re = re.compile(r'of|/')
+
+class Orphanet:
+    def __init__(self, lookup_filename, inher_filename):
+        self.lookup = self.parse_lookup(lookup_filename)
+        self.inheritance = self.parse_inheritance(inher_filename, self.lookup)
+
+    @classmethod
+    def parse_lookup(cls, filename):
+        tree = ET.parse(filename)
+        root = tree.getroot()
+        lookup = {} # orphanet -> omim
+        for disorder in root.findall('.//Disorder'):
+            orphanum = disorder.find('OrphaNumber').text
+            for ref in disorder.findall('./ExternalReferenceList/ExternalReference'):
+                if ref.find('Source').text == 'OMIM':
+                    omim = ref.find('Reference').text
+                    break
+            assert orphanum not in lookup
+            lookup[orphanum] = omim
+        return lookup
+
+    @classmethod
+    def parse_inheritance(cls, filename, lookup):
+        tree = ET.parse(filename)
+        root = tree.getroot()
+        inheritance = {} # omim -> inheritance pattern
+        for disorder in root.findall('.//Disorder'):
+            orphanum = disorder.find('OrphaNumber').text
+            #ensure that this disorder has an omim number
+            try:
+                id = lookup[orphanum]
+            except KeyError:
+                continue
+            inheritance[id] = disorder.findall('./TypeOfInheritanceList/TypeOfInheritance')
+        return inheritance    
+        
 
 class Disease:
     def __init__(self, db, id, name, phenotype_freqs):
@@ -198,7 +234,7 @@ def annotate_patient(patient,hgmd,omim):
         name = patient[:-7]        
 
     dis, phenotypes = hgmd.sample_disease(omim)
-    file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'50','PASS','.','GT','1|1'])+'\n')
+    file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'100','PASS','.','GT','1|1'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
     for p in phenotypes[1:]:
@@ -249,4 +285,5 @@ def main(args = sys.argv[1:]):
     script(**vars(args))
 
 if __name__ == '__main__':
-    sys.exit(main())
+    print "begun"
+    #sys.exit(main())

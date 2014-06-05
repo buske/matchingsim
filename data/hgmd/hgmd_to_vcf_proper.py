@@ -205,6 +205,31 @@ def get_correct(hgmd, genome, refbed):
                     continue
     return ret 
 
+def get_correct_incorrect(hgmd, genome, refbed):
+    ret = []
+    wrong = []
+    counter = 0
+    for e in hgmd:
+        counter += 1
+        if counter % 1000 == 0: print counter
+        #if it fits naively
+        if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == e.ref.upper():
+            ret.append(e)
+            continue    
+        #if it is snp, also try reversing ref and alt (for rare ref cases)
+        if len(e.ref) == 1 and len(e.alt) == 1 and e.ref != '-' and e.alt != '-':
+            if genome[e.chrom][int(e.loc)-1].upper() == e.alt.upper():
+                ret.append(Entry(e.chrom, e.loc, e.alt, e.ref, e.pmid, e.omimid))
+                continue
+        #anything involving negative strand; only want to check strand once
+        if intersect_neg(e,refbed):
+            if e.ref != '-':
+                if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == reverse_complement(e.ref.upper()):
+                    ret.append(Entry(e.chrom, e.loc, reverse_complement(e.ref), reverse_complement(e.alt), e.pmid, e.omimid))
+                    continue
+        wrong.append(e)
+    return ret , wrong
+
 def get_long(hgmd):
     return filter(lambda x: len(x.ref) >= 5, hgmd) 
 

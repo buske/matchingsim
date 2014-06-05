@@ -47,7 +47,8 @@ touch $out/$f.complete
 EOF
     #Submit
     #qsub -S /bin/sh "$script"
-    gunzip $out/$f.vcf.gz | java -Xms5g -Xmx5g -jar /filer/tools/exomiser/2.0.0/exomiser-2.0.0.jar -D /filer/tools/exomiser/2.0.0/data/ucsc_hg19.ser -I AD -F 1 -W /filer/tools/exomiser/2.0.0/data/rw_string_9_05.gz -X /filer/tools/exomiser/2.0.0/data/rw_string_9_05_id2index.gz --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output 
+    gunzip $out/$f.vcf.gz 
+    java -Xms5g -Xmx5g -jar /filer/tools/exomiser/2.0.0/exomiser-2.0.0.jar -D /filer/tools/exomiser/2.0.0/data/ucsc_hg19.ser -I AD -F 1 -W /filer/tools/exomiser/2.0.0/data/rw_string_9_05.gz -X /filer/tools/exomiser/2.0.0/data/rw_string_9_05_id2index.gz --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output 
 
 
 done
