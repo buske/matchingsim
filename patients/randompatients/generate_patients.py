@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-# OMIM, Orphanet  parsing code taken from Orion Buske, original can be found at
-# https://github.com/buske/udp-dating/blob/master/mim.py
+# OMIM, Orphanet  parsing code taken/adapted from Orion Buske, original can be found at
+# https://github.com/buske/udp-dating/blob/master/
 
 __author__ = 'Tal Friedman'
 
@@ -35,30 +35,31 @@ class Orphanet:
     def parse_lookup(cls, filename):
         tree = ET.parse(filename)
         root = tree.getroot()
-        lookup = {} # orphanet -> omim
+        lookup = defaultdict(list) # orphanet -> omim
         for disorder in root.findall('.//Disorder'):
             orphanum = disorder.find('OrphaNumber').text
             for ref in disorder.findall('./ExternalReferenceList/ExternalReference'):
                 if ref.find('Source').text == 'OMIM':
                     omim = ref.find('Reference').text
-                    break
-            assert orphanum not in lookup
-            lookup[orphanum] = omim
+                    lookup[orphanum].append(omim)
+
         return lookup
 
     @classmethod
     def parse_inheritance(cls, filename, lookup):
         tree = ET.parse(filename)
         root = tree.getroot()
-        inheritance = {} # omim -> inheritance pattern
+        inheritance = defaultdict(list) # omim -> inheritance pattern list
         for disorder in root.findall('.//Disorder'):
             orphanum = disorder.find('OrphaNumber').text
             #ensure that this disorder has an omim number
             try:
-                id = lookup[orphanum]
+                ids = lookup[orphanum]
             except KeyError:
                 continue
-            inheritance[id] = disorder.findall('./TypeOfInheritanceList/TypeOfInheritance')
+            for inher in  disorder.findall('./TypeOfInheritanceList/TypeOfInheritance'):
+                for id in ids:
+                    inheritance[id].append(inher.find('Name').text)
         return inheritance    
         
 
@@ -246,7 +247,14 @@ def annotate_patient_dir(pdir,hgmd,omim):
         if os.path.isfile(os.path.join(pdir,f)) and (f.endswith('.vcf') or f.endswith('.vcf.gz')):
             annotate_patient(os.path.join(pdir,f),hgmd,omim) 
 
-def script(pheno_file, hgmd_file, patient_path):
+def has_pattern(patterns, orphanet, e):
+    try:
+        return any(x in patterns for x in orphanet.inheritance[e.omimid])
+    except KeyError:
+        return false
+
+
+def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher, Inheritance=None):
     try:
         mim = MIM(pheno_file)
     except FileNotFoundError:
@@ -259,9 +267,23 @@ def script(pheno_file, hgmd_file, patient_path):
     except FileNotFoundError:
         print >> sys.stderr, "HGMD file not found or invalid"
    
+    try:
+        orph = Orphanet(orphanet_lookup,orphanet_inher)
+    except FileNotFoundError:
+        print >> sys.stderr, "Orphanet files not found or invalid"
+
     hgmd.entries = filter(lambda d:d.omimid,hgmd.entries)         
-    
-    #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
+     
+    #get the right disease set based on inheritance
+    if inheritance:
+        patterns = []
+        if 'AD' in inheritance:
+             patterns.append('Autosomal dominant')
+        if 'AR' in inheritance:
+            patterns.append('Autosomal recessive')
+        hgmd = [x for x in hgmd if has_pattern(patterns, orph, x)]                    
+  
+  #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):
         print "Given a directory full of patients!"
         annotate_patient_dir(patient_path, hgmd, omim)
@@ -277,7 +299,10 @@ def parse_args(args):
     parser = ArgumentParser(description='Generate randomly sampled sick patients')
     parser.add_argument('pheno_file', metavar='PHENO', help='phenotype annotation tab file')
     parser.add_argument('hgmd_file',metavar='HGMD', help='Annotated HGMD file in .vcf format')
-    parser.add_argument('patient_path',metavar='PATH', help='Path to a .vcf, .vcf.gz or a directory with these multiple of these in it')
+    parser.add_argument('patient_path',metavar='PATH', help='Path to a .vcf, .vcf.gz or a directory with multiple of these in it')
+    parser.add_argument('orphanet_lookup',metavar='ORPHLOOK', help='Orphanet XML file which crossreferences to OMIM')
+    parser.add_argument('orphanet_inher',metavar='ORPHINHER', help='Orphanet XML file giving inheritance patterns')
+    parser.add_argument('-I', '--Inheritance',nargs='+', choices=['AD','AR'], help='Which inheritance pattern sampled diseases should have, default is any, including unknown')
     return parser.parse_args(args)
 
 def main(args = sys.argv[1:]):
