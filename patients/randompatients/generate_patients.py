@@ -27,22 +27,23 @@ FREQUENCIES = {'very rare':  0.01,
 fraction_frequency_re = re.compile(r'of|/')
 
 class Orphanet:
-    def __init__(self, lookup_filename, inher_filename):
+    def __init__(self, lookup_filename, inher_filename, geno_pheno_filename):
         self.lookup = self.parse_lookup(lookup_filename)
         self.inheritance = self.parse_inheritance(inher_filename, self.lookup)
+        self.parse_geno_pheno(geno_pheno_filename,self.lookup)
 
     @classmethod
     def parse_lookup(cls, filename):
         tree = ET.parse(filename)
         root = tree.getroot()
-        lookup = defaultdict(list) # orphanet -> omim
+        lookup = defaultdict(lambda: [[],[],[]]) # orphanet -> omim
         for disorder in root.findall('.//Disorder'):
             orphanum = disorder.find('OrphaNumber').text
             for ref in disorder.findall('./ExternalReferenceList/ExternalReference'):
                 if ref.find('Source').text == 'OMIM':
                     omim = ref.find('Reference').text
-                    lookup[orphanum].append(omim)
-
+                    lookup[orphanum][0].append(omim)
+        lookup = {k:v for k,v in lookup.items() if v != [[],[],[]]} 
         return lookup
 
     @classmethod
@@ -54,15 +55,33 @@ class Orphanet:
             orphanum = disorder.find('OrphaNumber').text
             #ensure that this disorder has an omim number
             try:
-                ids = lookup[orphanum]
+                ids = lookup[orphanum][0]
             except KeyError:
                 continue
             for inher in  disorder.findall('./TypeOfInheritanceList/TypeOfInheritance'):
+                pattern = inher.find('Name').text
+                lookup[orphanum][1].append(pattern)
                 for id in ids:
-                    inheritance[id].append(inher.find('Name').text)
+                    inheritance[id].append(pattern)
         return inheritance    
         
-
+    @classmethod
+    def parse_geno_pheno(cls, filename, lookup):
+        tree = ET.parse(filename)
+        root = tree.getroot()
+        for disorder in root.findall('.//Disorder'):
+            restart = False
+            orphanum = disorder.find('OrphaNumber').text
+            for ref in disorder.findall('.//ExternalReferenceList/ExternalReference'):
+                if ref.find('Source').text == 'OMIM':
+                    omim = ref.find('Reference').text
+                    try:
+                        lookup[orphanum][2].append(omim)           
+                    except KeyError:
+                        restart = True
+                        break
+            if restart:
+                continue
 class Disease:
     def __init__(self, db, id, name, phenotype_freqs):
         self.db = db
