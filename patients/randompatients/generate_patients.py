@@ -15,6 +15,7 @@ import gzip
 from collections import defaultdict
 import xml.etree.ElementTree as ET
 from orpha import Orphanet
+from hgmd import HGMD
 
 FREQUENCIES = {'very rare':  0.01, 
                'rare':       0.05, 
@@ -115,72 +116,6 @@ class MIM:
                 
             disease = Disease(db, id, name, phenotype_freqs)
             yield disease
-
-class Entry:
-    def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid):
-        self.chrom = chrom
-        self.loc = loc
-        self.ref = ref
-        self.alt = alt
-        self.effect = effect
-        self.omimid = omimid
-        self.pmid = pmid
-    
-    def __str__(self):
-        return [self.chrom, self.loc, self.ref, self.alt, self.effect, self.omimid, self.pmid].__str__()
-
-    def __repr__(self):
-        return self.__str__()
-    
-    def get_phenotypes(self, omim):
-        if self.omimid: 
-            om = next(x for x in omim if x.id == self.omimid)
-        return list(om.phenotype_freqs)
-     
-class HGMD:
-    def __init__(self, filename):
-        self.entries = list(self.iter_lines(filename))
-    
-    def __iter__(self):
-        return iter(self.entries)
-   
-    def iter_lines(self, filename):
-         with open(filename) as hgmd:
-            for line in hgmd:
-                if line == '\n': continue
-                if line[0] == '#': continue
-                info = line.split('\t')
-                effect = info[7].split(';')[0].split('=')[1]
-                omimid = info[7].split(';')[2].split(':')[1]
-                pmid = info[7].split(';')[3].split(':')[1]      
-                yield Entry(info[0],info[1],info[3],info[4],effect,pmid,omimid)
- 
-    def __str__(self):
-        return self.entries.__str__()
-    
-    def sample_disease(self, omim, effects=None):
-        if effects:
-            diseases = self.get_entries_effects(effects)
-        else:
-            diseases = self.entries
-        phenotypes = []
-        #run until we get a disease with an omim entry
-        while True:
-            dis = random.choice(diseases)
-            omimd = next((x for x in omim if x.id == dis.omimid), None)
-            if not omimd: continue
-            for pheno in list(omimd.phenotype_freqs):
-                if not omimd.phenotype_freqs[pheno]:
-                    phenotypes.append(pheno)
-                else:
-                    if random.random < omimid.phenotype_freqs[pheno]:
-                        phenotypes.append(pheno) 
-            return dis, phenotypes
- 
-    def get_entries_effects(self, effects):
-        returned = []
-        for effect in effects:
-            returned += filter(lambda e:e.effect==effect,self.entries)
 
 def annotate_patient(patient,hgmd,omim):
     try:
