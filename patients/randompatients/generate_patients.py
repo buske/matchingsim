@@ -17,9 +17,9 @@ from omim import MIM
 
 #Assume orphanet disease has a phenotype entry
 def sample_phenotypes(omim, orph_disease):
-    phenotpyes = []
+    phenotypes = []
     omimd = next(x for x in omim if x.id == orph_disease[0][0])
-    for pheno, freq in omimd.phenotype_freqs:
+    for pheno, freq in omimd.phenotype_freqs.iteritems():
         if not freq:
             phenotypes.append(pheno)
         else:
@@ -45,9 +45,9 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
 
     orph_disease = lookup[random.choice(lookup.keys())]
     phenotypes = sample_phenotypes(omim, orph_disease)
-    var = random.choice(rev_hgmd[orph_disease[2]])
+    var = random.choice(rev_hgmd[orph_disease[2][0]])
 
-    file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'100','PASS','.','GT','1|1'])+'\n')
+    file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','1|1'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
     for p in phenotypes[1:]:
