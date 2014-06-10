@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+#test for help flag
+if [ $1 == '-h' ]
+then
+    echo "usage: $0 source_loc num_samples [-AD] [-AR]"
+    exit
+fi
+
 set -eu
 set -o pipefail
 #Use date and time as a signature for the generated data
