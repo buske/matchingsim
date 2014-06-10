@@ -47,7 +47,7 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
     phenotypes = sample_phenotypes(omim, orph_disease)
     var = random.choice(rev_hgmd[orph_disease[2][0]])
 
-    file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','1|1'])+'\n')
+    file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
     for p in phenotypes[1:]:
