@@ -1,6 +1,8 @@
 import os
 import sys
 
+from collections import defaultdict
+
 class Entry:
     def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid):
         self.chrom = chrom
@@ -49,6 +51,13 @@ class HGMD:
             if e.effect in effects:
                 returned += e
         return returned
+
+    def get_by_omim(self):
+        oentries = filter(lambda x: x.omimid, self.entries)
+        ret = {}
+        for o in oentries:
+            ret.setdefault(o.omimid, []).append(o)
+        return ret
 
 if __name__ == '__main__':
     hgmd = HGMD('/dupa-filer/talf/matchingsim/data/hgmd/hgmd_correct.jv.vcf')

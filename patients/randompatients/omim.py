@@ -1,5 +1,19 @@
 import os
 import sys
+import re
+import logging
+
+FREQUENCIES = {'very rare':  0.01, 
+               'rare':       0.05, 
+               'occasional': 0.075, 
+               'frequent':   0.33, 
+               'typical':    0.5, 
+               'variable':   0.5, 
+               'common':     0.75, 
+               'hallmark':   0.9, 
+               'obligate':   1.0}
+fraction_frequency_re = re.compile(r'of|/')
+
 
 class Disease:
     def __init__(self, db, id, name, phenotype_freqs):
@@ -90,3 +104,5 @@ class MIM:
             disease = Disease(db, id, name, phenotype_freqs)
             yield disease
 
+if __name__ == '__main__':
+    omim = MIM('/dupa-filer/talf/matchingsim/patients/phenotype_annotation.tab')

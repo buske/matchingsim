@@ -7,29 +7,27 @@ __author__ = 'Tal Friedman'
 
 import os
 import sys
-import re
-import logging
 import random
 import gzip
 
 from collections import defaultdict
-import xml.etree.ElementTree as ET
 from orpha import Orphanet
 from hgmd import HGMD
 from omim import MIM
 
-FREQUENCIES = {'very rare':  0.01, 
-               'rare':       0.05, 
-               'occasional': 0.075, 
-               'frequent':   0.33, 
-               'typical':    0.5, 
-               'variable':   0.5, 
-               'common':     0.75, 
-               'hallmark':   0.9, 
-               'obligate':   1.0}
-fraction_frequency_re = re.compile(r'of|/')
+#Assume orphanet disease has a phenotype entry
+def sample_phenotypes(omim, orph_disease):
+    phenotpyes = []
+    omimd = next(x for x in omim if x.id == orph_disease[0][0])
+    for pheno, freq in list(omimd.phenotype_freqs):
+        if not freq:
+            phenotypes.append(pheno)
+        else:
+            if random.random < freq:
+                phenotypes.append(pheno)
+    return phenotypes
 
-def annotate_patient(patient,hgmd,omim):
+def annotate_patient(patient,rev_hgmd,omim,lookup):
     try:
         if not patient[-4:] == '.vcf' and not patient[-7:] == '.vcf.gz':
             print >> sys.stderr, "Incorrect file format, use .vcf.gz or .vcf"
@@ -45,7 +43,10 @@ def annotate_patient(patient,hgmd,omim):
         file = gzip.open(patient, 'ab')
         name = patient[:-7]        
 
-    dis, phenotypes = hgmd.sample_disease(omim)
+    orph_disease = random.choice(lookup)
+    phenotypes = sample_phenotypes(omim, orph_disease)
+    var = random.choice(rev_hgmd[orph_disease[2]])
+
     file.write('\t'.join([dis.chrom,dis.loc,'.',dis.ref,dis.alt,'100','PASS','.','GT','1|1'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
@@ -53,48 +54,73 @@ def annotate_patient(patient,hgmd,omim):
         hpo.write(','+p) 
     file.close() 
 
-def annotate_patient_dir(pdir,hgmd,omim):
+def annotate_patient_dir(pdir,rev_hgmd,omim,lookup):
     for f in os.listdir(pdir):
         if os.path.isfile(os.path.join(pdir,f)) and (f.endswith('.vcf') or f.endswith('.vcf.gz')):
-            annotate_patient(os.path.join(pdir,f),hgmd,omim) 
+            annotate_patient(os.path.join(pdir,f),rev_hgmd,omim,lookup) 
 
-def has_pattern(patterns, orphanet, e):
+def has_pattern(patterns, o):
     try:
-        return any(x in patterns for x in orphanet.inheritance[e.omimid])
+        return any(x in patterns for x in o[1])
     except KeyError:
         return false
 
+def has_pheno(omim, o):
+    next((x for x in omim if x.id == o[0][0]),None)
+
+#ensure that all elements of lookup are entirely useable
+def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
+    #get ideal orphanet cases
+    newlook = {}
+    for k,v in lookup.iteritems():
+        if len(v[0]) == 1 and len(v[1]) == 1 and len(v[2]) == 1:
+            newlook[k] = v
+    
+    #get the right disease set based on inheritance
+    if Inheritance:
+        patterns = []
+        if 'AD' in inheritance:
+             patterns.append('Autosomal dominant')
+        if 'AR' in inheritance:
+            patterns.append('Autosomal recessive')
+        lookup = filter(lambda x: has_pattern(patterns, x),lookup)
+    
+    #ensure all orphanet cases have phenotypic annotations
+    lookup = filter(lambda x: has_pheno(omim, x), lookup)
+    
+    #ensure all orphanet cases have at least one associated variant
+    newlook = {}
+    for k, o in lookup.iteritems():
+        try:
+            a = rev_hgmd[o[2][0]]
+            newlook[k] = o
+        except KeyError:
+            pass
+    return newlook
 
 def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher, orphanet_geno_pheno,  Inheritance=None):
     try:
         mim = MIM(pheno_file)
-    except FileNotFoundError:
+    except IOError:
         print >> sys.stderr, "OMIM file not found or invalid"
  
     omim = filter(lambda d:d.db == 'OMIM',mim.diseases)
 
     try:    
         hgmd = HGMD(hgmd_file)
-    except FileNotFoundError:
+    except IOError:
         print >> sys.stderr, "HGMD file not found or invalid"
    
     try:
         orph = Orphanet(orphanet_lookup,orphanet_inher, orphanet_geno_pheno)
-    except FileNotFoundError:
+    except IOError:
         print >> sys.stderr, "Orphanet files not found or invalid"
 
-    hgmd.entries = filter(lambda d:d.omimid,hgmd.entries)         
-     
-    #get the right disease set based on inheritance
-    if inheritance:
-        patterns = []
-        if 'AD' in inheritance:
-             patterns.append('Autosomal dominant')
-        if 'AR' in inheritance:
-            patterns.append('Autosomal recessive')
-        hgmd = [x for x in hgmd if has_pattern(patterns, orph, x)]                    
-  
-  #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
+    #get hgmd variants by omim
+    rev_hgmd = hgmd.get_by_omim()
+
+    lookup = correct_lookup(orph.lookup,omim,rev_hgmd,Inheritance)
+    #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):
         print "Given a directory full of patients!"
         annotate_patient_dir(patient_path, hgmd, omim)
@@ -122,5 +148,4 @@ def main(args = sys.argv[1:]):
     script(**vars(args))
 
 if __name__ == '__main__':
-    print "begun"
-    #sys.exit(main())
+    sys.exit(main())
