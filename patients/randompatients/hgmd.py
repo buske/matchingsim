@@ -1,3 +1,6 @@
+import os
+import sys
+
 class Entry:
     def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid):
         self.chrom = chrom
