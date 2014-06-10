@@ -19,7 +19,7 @@ from omim import MIM
 def sample_phenotypes(omim, orph_disease):
     phenotpyes = []
     omimd = next(x for x in omim if x.id == orph_disease[0][0])
-    for pheno, freq in list(omimd.phenotype_freqs):
+    for pheno, freq in omimd.phenotype_freqs:
         if not freq:
             phenotypes.append(pheno)
         else:
@@ -43,7 +43,7 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
         file = gzip.open(patient, 'ab')
         name = patient[:-7]        
 
-    orph_disease = random.choice(lookup)
+    orph_disease = lookup[random.choice(lookup.keys())]
     phenotypes = sample_phenotypes(omim, orph_disease)
     var = random.choice(rev_hgmd[orph_disease[2]])
 
@@ -60,13 +60,10 @@ def annotate_patient_dir(pdir,rev_hgmd,omim,lookup):
             annotate_patient(os.path.join(pdir,f),rev_hgmd,omim,lookup) 
 
 def has_pattern(patterns, o):
-    try:
-        return any(x in patterns for x in o[1])
-    except KeyError:
-        return false
+    return any(x in patterns for x in o[1])
 
 def has_pheno(omim, o):
-    next((x for x in omim if x.id == o[0][0]),None)
+    return any(x.id == o[0][0] for x in omim)
 
 #ensure that all elements of lookup are entirely useable
 def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
@@ -75,19 +72,17 @@ def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
     for k,v in lookup.iteritems():
         if len(v[0]) == 1 and len(v[1]) == 1 and len(v[2]) == 1:
             newlook[k] = v
-    
     #get the right disease set based on inheritance
     if Inheritance:
         patterns = []
-        if 'AD' in inheritance:
+        if 'AD' in Inheritance:
              patterns.append('Autosomal dominant')
-        if 'AR' in inheritance:
+        if 'AR' in Inheritance:
             patterns.append('Autosomal recessive')
-        lookup = filter(lambda x: has_pattern(patterns, x),lookup)
+        lookup = {k:v for k,v in newlook.iteritems() if has_pattern(patterns, v)}
     
     #ensure all orphanet cases have phenotypic annotations
-    lookup = filter(lambda x: has_pheno(omim, x), lookup)
-    
+    lookup = {k:v for k,v in lookup.iteritems() if has_pheno(omim, v)}
     #ensure all orphanet cases have at least one associated variant
     newlook = {}
     for k, o in lookup.iteritems():
@@ -123,11 +118,11 @@ def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher,
     #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):
         print "Given a directory full of patients!"
-        annotate_patient_dir(patient_path, hgmd, omim)
+        annotate_patient_dir(patient_path, rev_hgmd, omim, lookup)
     #if we are given a single file just annotate it normally
     elif os.path.isfile(patient_path):
         print "Given a single patient file!"
-        annotate_patient(patient_path, hgmd, omim)
+        annotate_patient(patient_path, rev_hgmd, omim, lookup)
     else:
         print >> sys.stderr, "Patient file/folder not found or invalid"   
   

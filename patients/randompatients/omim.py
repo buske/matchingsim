@@ -3,6 +3,8 @@ import sys
 import re
 import logging
 
+from collections import defaultdict
+
 FREQUENCIES = {'very rare':  0.01, 
                'rare':       0.05, 
                'occasional': 0.075, 
