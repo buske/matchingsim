@@ -60,5 +60,5 @@ class HGMD:
         return ret
 
 if __name__ == '__main__':
-    hgmd = HGMD('/dupa-filer/talf/matchingsim/data/hgmd/hgmd_correct.jv.vcf')
+    hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
     print "Success!"

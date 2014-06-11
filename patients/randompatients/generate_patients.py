@@ -23,9 +23,13 @@ def sample_phenotypes(omim, orph_disease):
         if not freq:
             phenotypes.append(pheno)
         else:
-            if random.random < freq:
+            if random.random() < freq:
                 phenotypes.append(pheno)
-    return phenotypes
+    if phenotypes:
+        return phenotypes
+    else:
+        #we don't want an empty phenotype list
+        return sample_phenotypes(omim, orph_disease)
 
 def annotate_patient(patient,rev_hgmd,omim,lookup):
     try:
@@ -79,10 +83,10 @@ def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
              patterns.append('Autosomal dominant')
         if 'AR' in Inheritance:
             patterns.append('Autosomal recessive')
-        lookup = {k:v for k,v in newlook.iteritems() if has_pattern(patterns, v)}
+        newlook = {k:v for k,v in newlook.iteritems() if has_pattern(patterns, v)}
     
     #ensure all orphanet cases have phenotypic annotations
-    lookup = {k:v for k,v in lookup.iteritems() if has_pheno(omim, v)}
+    lookup = {k:v for k,v in newlook.iteritems() if has_pheno(omim, v)}
     #ensure all orphanet cases have at least one associated variant
     newlook = {}
     for k, o in lookup.iteritems():
