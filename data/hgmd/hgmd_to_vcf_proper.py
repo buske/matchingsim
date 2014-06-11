@@ -198,9 +198,8 @@ def get_correct(hgmd, genome, refbed):
                 ret.append(Entry(e.chrom, e.loc, e.alt, e.ref, e.pmid, e.omimid))
                 continue
         #anything involving negative strand; only want to check strand once
-        if intersect_neg(e,refbed):
-            if e.ref != '-':
-                if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == reverse_complement(e.ref.upper()):
+        if e.ref != '-':
+            if genome[e.chrom][int(e.loc)-1:int(e.loc)+len(e.ref)-1].upper() == reverse_complement(e.ref.upper()):
                     ret.append(Entry(e.chrom, e.loc, reverse_complement(e.ref), reverse_complement(e.alt), e.pmid, e.omimid))
                     continue
     return ret 

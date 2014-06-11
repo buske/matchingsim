@@ -31,9 +31,14 @@ done
 python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab $data/hgmd_correct.jv.vcf $out $data/orphanet_lookup.xml $data/orphanet_inher.xml $data/orphanet_geno_pheno.xml -I AD
 #step 3: create a script and dispatch exomizer job (and create rerun script)
 cat > "$out/rerun.sh" <<EOF
-for s in $out/scripts/*.sh
+for file in $out/*.vcf
 do
-    qsub -S /bin/sh \$s
+    f=`echo $file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1`
+    #resubmit script only if the required file doesn't already exist
+    if [ ! -f "$out"/$f.ezr ]
+    then
+        qsub -S /bin/sh "$out/scripts/dispatch_$f.sh"
+    fi
 done
 EOF
 chmod +x "$out/rerun.sh"
@@ -57,12 +62,12 @@ set -eu
 set -o pipefail
 temp=\$TMPDIR/$f.ezr
 
-#Run exomizer, only if the required file doesn't already exist
-if [ ! -f "$out"/$f.ezr ]
+#only unzip if the unziped file doesn't already exist (i.e. only unzip on first run)
+if [ ! -f "$out"/$f.vcf ]
 then
     gunzip $out/$f.vcf.gz
-    java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AD -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp
 fi
+java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AD -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp
 
 mv -v \$temp $out/$f.ezr.temp
 mv -v $out/$f.ezr.temp $out/$f.ezr
