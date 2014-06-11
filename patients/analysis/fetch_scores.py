@@ -34,16 +34,16 @@ def script(vcf_ezr_path):
     
     for vcf, ezr in zip(vcf_files, ezr_files):
         last = get_last_line(os.path.join(vcf_ezr_path,vcf))
-        first = get_first_line(os.path.join(vcf_ez_path,ezr))
+        first = get_first_line(os.path.join(vcf_ezr_path,ezr))
         linfo = last.split('\t')
         finfo = first.split('\t')
-        if linfo[0] == finfo[0][3:] and linfo[0] == finfo[1]:
+        if linfo[0] == finfo[0][3:] and linfo[1] == finfo[1]:
             counter += 1
 
-    with open(os.path.join(vcf_ez_path, 'score.txt'), 'w'):
-        write('Total Patients: ' + str(len(vcf_files)) + '\n')
-        write('Total Patients exomizer ranked inserted variant #1: ' + str(counter) + '\n')
-        write('Accuracy: ' + str(float(counter)/len(vcf_files)) + '\n')
+    with open(os.path.join(vcf_ezr_path, 'score.txt'), 'w') as file:
+        file.write('Total Patients: ' + str(len(vcf_files)) + '\n')
+        file.write('Total Patients exomizer ranked inserted variant #1: ' + str(counter) + '\n')
+        file.write('Accuracy: ' + str(float(counter)/len(vcf_files)) + '\n')
 
 def parse_args(args):
     from argparse import ArgumentParser
