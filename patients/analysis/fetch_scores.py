@@ -26,8 +26,7 @@ def script(vcf_ezr_path):
     ezr_files = filter(lambda f: f.endswith('.ezr'),contents)
     #fail with error if we're missing ezr files; likely job didn't complete 
     if len(vcf_files) != len(ezr_files):
-        print >> sys.stderr, "ERROR: vcf/ezr numbers do not align"
-        sys.exit()
+        print >> sys.stderr, "WARNING: vcf/ezr numbers do not align, your job probably didn't finish"
    #sort file lists so that when we loop through them in parallel they are in same order
     vcf_files.sort()
     ezr_files.sort()
