@@ -36,6 +36,7 @@ do
     qsub -S /bin/sh \$s
 done
 EOF
+chmod +x "$out/rerun.sh"
 
 mkdir -pv $out/scripts
 for file in $out/*.vcf.gz; do
