@@ -33,11 +33,12 @@ python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab 
 cat > "$out/rerun.sh" <<EOF
 for file in $out/*.vcf
 do
-    f=`echo \$file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1`
+    f=\`echo \$file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1\`
     #resubmit script only if the required file doesn't already exist
-    if [ ! -f "$out"/$f.ezr ]
+    if [ ! -f "$out"/\$f.ezr ]
     then
         qsub -S /bin/sh "$out/scripts/dispatch_\$f.sh"
+        sleep 10
     fi
 done
 EOF
@@ -74,6 +75,7 @@ mv -v $out/$f.ezr.temp $out/$f.ezr
 EOF
     #Submit
     qsub -S /bin/sh "$script"
-
+    #wait so we don't overload cluster
+    sleep 10
 done
 
