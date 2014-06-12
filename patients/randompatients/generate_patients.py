@@ -52,7 +52,7 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
     
     #if autosomal recessive, if we only have one variant available use it as homozygous otherwise randomly (50/50) pick two and use as heterozygous or pick one as homozygous
     if orph_disease[1][0] == 'Autosomal recessive':
-        if len(rev_hgmd[orph_disease[2][0]]) == 1 | random.random() < 0.5:
+        if len(rev_hgmd[orph_disease[2][0]]) == 1 or random.random() < 0.5:
             var = rev_hgmd[orph_disease[2][0]][0]
             file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','1|1'])+'\n')
         else:
