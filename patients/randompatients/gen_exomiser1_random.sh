@@ -3,7 +3,7 @@
 #test for help flag
 if [ $1 == '-h' ]
 then
-    echo "usage: $0 source_loc num_samples [-AD] [-AR]"
+    echo "usage: $0 source_loc num_samples [-R]"
     exit
 fi
 
@@ -28,7 +28,11 @@ do
     cp $s $out 
 done
 #step 2: run our patient generator to "infect" all of these patients
-python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab $data/hgmd_correct.jv.vcf $out $data/orphanet_lookup.xml $data/orphanet_inher.xml $data/orphanet_geno_pheno.xml -I AD
+if [ $# -eq 3 ] && [ $3 == '-R']; then
+    python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab $data/hgmd_correct.jv.vcf $out $data/orphanet_lookup.xml $data/orphanet_inher.xml $data/orphanet_geno_pheno.xml -I AR
+else
+    python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab $data/hgmd_correct.jv.vcf $out $data/orphanet_lookup.xml $data/orphanet_inher.xml $data/orphanet_geno_pheno.xml -I AD
+fi
 #step 3: create a script and dispatch exomizer job (and create rerun script)
 cat > "$out/rerun.sh" <<EOF
 for file in $out/*.vcf
@@ -50,7 +54,32 @@ for file in $out/*.vcf.gz $out/*.vcf; do
     #get only ending to name script
     f=`echo $file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1`
     script="$out/scripts/dispatch_$f.sh"   
-    cat > "$script" <<EOF
+    if [ $# -eq 3 ] && [ $3 == '-R']; then
+        cat > "$script" <<EOF
+#!/usr/bin/env bash
+#$ -V
+#$ -N "$f"
+#$ -pe parallel "$processors"
+#$ -l h_vmem="$memory"
+#$ -e $logdir
+#$ -o $logdir
+
+set -eu
+set -o pipefail
+temp=\$TMPDIR/$f.ezr
+
+#only unzip if the unziped file doesn't already exist (i.e. only unzip on first run)
+if [ ! -f "$out"/$f.vcf ]
+then
+    gunzip $out/$f.vcf.gz
+fi
+java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AR -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp
+
+mv -v \$temp $out/$f.ezr.temp
+mv -v $out/$f.ezr.temp $out/$f.ezr
+EOF
+    else
+        cat > "$script" <<EOF
 #!/usr/bin/env bash
 #$ -V
 #$ -N "$f"
@@ -73,6 +102,7 @@ java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgres
 mv -v \$temp $out/$f.ezr.temp
 mv -v $out/$f.ezr.temp $out/$f.ezr
 EOF
+    fi
     #Submit
     qsub -S /bin/sh "$script"
     #wait so we don't overload cluster
