@@ -49,9 +49,23 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
 
     orph_disease = lookup[random.choice(lookup.keys())]
     phenotypes = sample_phenotypes(omim, orph_disease)
-    var = random.choice(rev_hgmd[orph_disease[2][0]])
+    
+    #if autosomal recessive, if we only have one variant available use it as homozygous otherwise randomly (50/50) pick two and use as heterozygous or pick one as homozygous
+    if orph_disease[1][0] == 'Autosomal recessive':
+        if len(rev_hgmd[orph_disease[2][0]]) == 1 | random.random() < 0.5:
+            var = rev_hgmd[orph_disease[2][0]][0]
+            file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','1|1'])+'\n')
+        else:
+            vars = random.sample(rev_hgmd[orph_disease[2][0]], 2)
+            for var in vars:
+                file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
+                    
+    #If AD (or something else, but those should never happen) then one heterozygous mutation added
+    else orph_disease[1][0] == 'Autosomal dominant':
+        var = random.choice(rev_hgmd[orph_disease[2][0]])
+        file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
+    
 
-    file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
     hpo = open(name + '_hpo.txt','w')
     hpo.write(phenotypes[0])
     for p in phenotypes[1:]:
