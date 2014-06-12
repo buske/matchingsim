@@ -28,7 +28,7 @@ do
     cp $s $out 
 done
 #step 2: run our patient generator to "infect" all of these patients
-if [ $# -eq 3 ] && [ $3 == '-R']; then
+if [ $# -eq 3 ] && [ $3 == '-R' ]; then
     python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab $data/hgmd_correct.jv.vcf $out $data/orphanet_lookup.xml $data/orphanet_inher.xml $data/orphanet_geno_pheno.xml -I AR
 else
     python $data/randompatients/generate_patients.py $data/phenotype_annotation.tab $data/hgmd_correct.jv.vcf $out $data/orphanet_lookup.xml $data/orphanet_inher.xml $data/orphanet_geno_pheno.xml -I AD
@@ -54,7 +54,7 @@ for file in $out/*.vcf.gz $out/*.vcf; do
     #get only ending to name script
     f=`echo $file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1`
     script="$out/scripts/dispatch_$f.sh"   
-    if [ $# -eq 3 ] && [ $3 == '-R']; then
+    if [ $# -eq 3 ] && [ $3 == '-R' ]; then
         cat > "$script" <<EOF
 #!/usr/bin/env bash
 #$ -V
