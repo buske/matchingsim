@@ -38,7 +38,7 @@ do
     if [ ! -f "$out"/\$f.ezr ]
     then
         qsub -S /bin/sh "$out/scripts/dispatch_\$f.sh"
-        sleep 10
+        sleep 15
     fi
 done
 EOF
@@ -76,6 +76,6 @@ EOF
     #Submit
     qsub -S /bin/sh "$script"
     #wait so we don't overload cluster
-    sleep 10
+    sleep 15
 done
 
