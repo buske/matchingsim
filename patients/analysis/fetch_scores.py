@@ -14,13 +14,16 @@ def get_last_line(path):
             s = line
     return s
 
-def get_first_line(path):
-    with open(path) as file:
-        for line in file:
-            if line.startswith('#'): continue
-            return line
+def get_actual_lines(path):
+    with open(path) as file:    
+        return filter(lambda x: not x.startswith('#'), list(file))
 
-def script(vcf_ezr_path):
+def is_match(linev, linee):
+    infov = linev.split('\t')
+    infoe = linee.split('\t')
+    return infov[0] == infoe[0][3:] and infov[1] == infoe[1]
+
+def script(vcf_ezr_path, A, N=None):
     logging.basicConfig(filename = os.path.join(vcf_ezr_path, 'score.log'), level = logging.INFO)
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
@@ -28,7 +31,12 @@ def script(vcf_ezr_path):
     ch.setFormatter(formatter)
     logging.getLogger().addHandler(ch)
 
+    if N:
+        N=int(N[0])
+    
     counter = 0
+    Acounter = 0
+    Ncounter = 0
     contents = os.listdir(vcf_ezr_path)
     vcf_files = filter(lambda f: f.endswith('.vcf'),contents)
     ezr_files = filter(lambda f: f.endswith('.ezr'),contents)
@@ -41,21 +49,34 @@ def script(vcf_ezr_path):
     ezr_files.sort()
     
     for vcf, ezr in zip(vcf_files, ezr_files):
-        last = get_last_line(os.path.join(vcf_ezr_path,vcf))
-        first = get_first_line(os.path.join(vcf_ezr_path,ezr))
-        linfo = last.split('\t')
-        finfo = first.split('\t')
-        if linfo[0] == finfo[0][3:] and linfo[1] == finfo[1]:
+        v = get_last_line(os.path.join(vcf_ezr_path,vcf))
+        elines = get_actual_lines(os.path.join(vcf_ezr_path,ezr))
+        efirst = elines[0] 
+        if is_match(v,efirst):
             counter += 1
+        if A:
+            if any(is_match(v,x) for x in elines):
+                Acounter += 1
+        if N:
+            if any(is_match(v,x) for x in elines[:N]):
+                Ncounter += 1
 
-    with open(os.path.join(vcf_ezr_path, 'score.txt'), 'w') as file:
-        logging.info('Total Patients: ' + str(len(vcf_files)))
-        logging.info('Total Patients exomizer ranked inserted variant #1: ' + str(counter))
-        logging.info('Accuracy: ' + str(float(counter)/len(vcf_files)))
+    logging.info('Total Patients: ' + str(len(vcf_files)))
+    logging.info('Total Patients exomizer ranked inserted variant #1: ' + str(counter))
+    logging.info('Accuracy of top hits: ' + str(float(counter)/len(vcf_files)))
+    if N:
+        logging.info('Total patients exomizer ranked inserted variant top #' + str(N) + ': ' + str(Ncounter))
+        logging.info('Accuracy of top ' + str(N) + ' hits: ' + str(float(Ncounter)/len(vcf_files)))
+    if A:
+        logging.info('Total patients exomizer ranked inserted variant at all: ' + str(Acounter))
+        logging.info('Accuracy of entire file: ' + str(float(Acounter)/len(vcf_files)))
+
 
 def parse_args(args):
     from argparse import ArgumentParser
     parser = ArgumentParser(description='Annotate a vcf/ezr file with the top hit success rate')
+    parser.add_argument('-A',help='check entire ezr ranking for a hit',action='store_true')
+    parser.add_argument('-N',help='check if hit is in the top N entries',nargs=1)
     parser.add_argument('vcf_ezr_path',metavar='DIR', help='the directory were vcf/ezr files are located')
     return parser.parse_args(args)
 
