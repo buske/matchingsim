@@ -61,7 +61,7 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
                 file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
                     
     #If AD (or something else, but those should never happen) then one heterozygous mutation added
-    else orph_disease[1][0] == 'Autosomal dominant':
+    else:
         var = random.choice(rev_hgmd[orph_disease[2][0]])
         file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
     
