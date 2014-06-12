@@ -16,7 +16,7 @@ memory=10G
 processors=1
 logdir=~/sge_logs/gen_exomise/$sig/
 mkdir -pv $logdir
-out=/dupa-filer/talf/matchingsim/patients/$sig/
+out=/dupa-filer/talf/matchingsim/patients/$sig
 data=/dupa-filer/talf/matchingsim/patients
 #location of files given first, number of files to generate is given as second argument
 loc=$1
@@ -38,7 +38,7 @@ do
     if [ ! -f "$out"/\$f.ezr ]
     then
         qsub -S /bin/sh "$out/scripts/dispatch_\$f.sh"
-        sleep 15
+        sleep 20 
     fi
 done
 EOF
@@ -76,6 +76,6 @@ EOF
     #Submit
     qsub -S /bin/sh "$script"
     #wait so we don't overload cluster
-    sleep 15
+    sleep 20 
 done
 
