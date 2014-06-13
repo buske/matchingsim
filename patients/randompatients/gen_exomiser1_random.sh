@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+usage="usage: $0 source_loc num_samples [-R]"
 
 #test for help flag
 if [ $1 == '-h' ]
 then
-    echo "usage: $0 source_loc num_samples [-R]"
-    exit
+    echo "$usage"  
+    exit 1
 fi
 
 set -eu
@@ -16,8 +17,18 @@ memory=10G
 processors=1
 logdir=~/sge_logs/gen_exomise/$sig/
 mkdir -pv $logdir
-out=/dupa-filer/talf/matchingsim/patients/$sig
+if [ $# -eq 3 ] && [ $3 == '-R' ]; then
+    out=/dupa-filer/talf/matchingsim/patients/"$sig"R
+else
+    out=/dupa-filer/talf/matchingsim/patients/$sig
+fi
 data=/dupa-filer/talf/matchingsim/patients
+
+#ensure positional arguments are present
+if [ $# -lt 2 ]; then
+    echo "$usage"
+    exit 1
+fi
 #location of files given first, number of files to generate is given as second argument
 loc=$1
 num=$2

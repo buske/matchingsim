@@ -82,7 +82,7 @@ def script(vcf_ezr_paths, A, R, N=None):
         logging.info('Total Patients exomizer ranked inserted variant #1: ' + str(counter))
         logging.info('Accuracy of top hits: ' + str(float(counter)/len(vcf_files)))
         if N:
-            logging.info('Total patients exomizer ranked inserted variant top #' + str(N) + ': ' + str(Ncounter))
+            logging.info('Total patients exomizer ranked inserted variant top ' + str(N) + ': ' + str(Ncounter))
             logging.info('Accuracy of top ' + str(N) + ' hits: ' + str(float(Ncounter)/len(vcf_files)))
         if A:
             logging.info('Total patients exomizer ranked inserted variant at all: ' + str(Acounter))
