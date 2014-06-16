@@ -53,7 +53,7 @@ do
     if [ ! -f "$out"/\$f.ezr ]
     then
         qsub -S /bin/sh "$out/scripts/dispatch_\$f.sh"
-        sleep 20 
+        sleep 30 
     fi
 done
 EOF
@@ -84,7 +84,7 @@ if [ ! -f "$out"/$f.vcf ]
 then
     gunzip $out/$f.vcf.gz
 fi
-java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AR -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp
+java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AR -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp -P
 
 mv -v \$temp $out/$f.ezr.temp
 mv -v $out/$f.ezr.temp $out/$f.ezr
@@ -108,7 +108,7 @@ if [ ! -f "$out"/$f.vcf ]
 then
     gunzip $out/$f.vcf.gz
 fi
-java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AD -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp
+java -Xmx1900m -Xms1000m -jar /data/Exomiser/Exomizer.jar --db_url jdbc:postgresql://combine-102.biolab.sandbox/nsfpalizer -D /data/Exomiser/ucsc.ser -I AD -F 1 --hpo_ids `cat $out/"$f"_hpo.txt` -v $out/$f.vcf --vcf_output -o \$temp -P
 
 mv -v \$temp $out/$f.ezr.temp
 mv -v $out/$f.ezr.temp $out/$f.ezr
@@ -117,6 +117,6 @@ EOF
     #Submit
     qsub -S /bin/sh "$script"
     #wait so we don't overload cluster
-    sleep 20 
+    sleep 30 
 done
 
