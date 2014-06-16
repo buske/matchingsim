@@ -8,6 +8,9 @@ import os
 import sys
 import logging
 
+from collections import defaultdict
+from hgmd import HGMD
+
 def get_last_line(path):
     with open(path) as file:
         for line in file:
@@ -35,7 +38,9 @@ def is_match(linevs, linee):
             return True
     return False
 
-def script(vcf_ezr_paths, A, R, N=None):
+def script(vcf_ezr_paths, A, R, E, N=None):
+    if E:
+        hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
     if N:
         N=int(N[0])
     for vcf_ezr_path in vcf_ezr_paths:
@@ -60,6 +65,9 @@ def script(vcf_ezr_paths, A, R, N=None):
         vcf_files.sort()
         ezr_files.sort()
         
+        if E:
+            Ecounter = defaultdict(lambda:[0,0])
+
         for vcf, ezr in zip(vcf_files, ezr_files):
             #if it is a recessive disease we may be pulling 2 lines
             if R:
@@ -71,6 +79,12 @@ def script(vcf_ezr_paths, A, R, N=None):
             efirst = elines[0] 
             if is_match(v,efirst):
                 counter += 1
+            if E:
+                #find the effect of the inserted variant
+                effect = next(x for x in hgmd.entries if x.chrom == v[0].split('\t')[0] and x.loc == v[0].split('\t')[1]).effect
+                Ecounter[effect][1] += 1
+                if is_match(v,efirst):
+                    Ecounter[effect][0] += 1
             if A:
                 if any(is_match(v,x) for x in elines):
                     Acounter += 1
@@ -87,6 +101,10 @@ def script(vcf_ezr_paths, A, R, N=None):
         if A:
             logging.info('Total patients exomizer ranked inserted variant at all: ' + str(Acounter))
             logging.info('Accuracy of entire file: ' + str(float(Acounter)/len(vcf_files)))
+        if E:
+            for k,v in Ecounter.iteritems():
+                logging.info('Total patients for effect ' + k + ': ' + str(v[1]))
+                logging.info('Accuracy for effect ' + k + ': ' + str(float(v[0])/v[1]))
 
 
 def parse_args(args):
@@ -95,6 +113,7 @@ def parse_args(args):
     parser.add_argument('-R',help='files to analyze were infected with autosomal recessive diseases (default is AD)', action='store_true')
     parser.add_argument('-A',help='check entire ezr ranking for a hit',action='store_true')
     parser.add_argument('-N',help='check if hit is in the top N entries',nargs=1)
+    parser.add_argument('-E',help='give info about accuracy per variant effect type',action='store_true')
     parser.add_argument('vcf_ezr_paths',metavar='DIR',nargs='+',help='the directory were vcf/ezr files are located')
     return parser.parse_args(args)
 
