@@ -31,7 +31,7 @@ def sample_phenotypes(omim, orph_disease):
         #we don't want an empty phenotype list
         return sample_phenotypes(omim, orph_disease)
 
-def annotate_patient(patient,rev_hgmd,omim,lookup):
+def annotate_patient(patient,rev_hgmd,omim,lookup,O):
     try:
         if not patient[-4:] == '.vcf' and not patient[-7:] == '.vcf.gz':
             print >> sys.stderr, "Incorrect file format, use .vcf.gz or .vcf"
@@ -65,17 +65,22 @@ def annotate_patient(patient,rev_hgmd,omim,lookup):
         var = random.choice(rev_hgmd[orph_disease[2][0]])
         file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
     
+    if O:
+        hpo = open(name + '_omim.txt','w')
+        hpo.write(orph_disease[0][0])
+    else:
+        hpo = open(name + '_hpo.txt','w')
+        hpo.write(phenotypes[0])
+        for p in phenotypes[1:]:
+            hpo.write(','+p) 
 
-    hpo = open(name + '_hpo.txt','w')
-    hpo.write(phenotypes[0])
-    for p in phenotypes[1:]:
-        hpo.write(','+p) 
+    hpo.close()
     file.close() 
 
-def annotate_patient_dir(pdir,rev_hgmd,omim,lookup):
+def annotate_patient_dir(pdir,rev_hgmd,omim,lookup,O):
     for f in os.listdir(pdir):
         if os.path.isfile(os.path.join(pdir,f)) and (f.endswith('.vcf') or f.endswith('.vcf.gz')):
-            annotate_patient(os.path.join(pdir,f),rev_hgmd,omim,lookup) 
+            annotate_patient(os.path.join(pdir,f),rev_hgmd,omim,lookup,O) 
 
 def has_pattern(patterns, o):
     return any(x in patterns for x in o[1])
@@ -111,7 +116,7 @@ def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
             pass
     return newlook
 
-def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher, orphanet_geno_pheno,  Inheritance=None):
+def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher, orphanet_geno_pheno,  O, Inheritance=None):
     try:
         mim = MIM(pheno_file)
     except IOError:
@@ -136,11 +141,11 @@ def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher,
     #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):
         print "Given a directory full of patients!"
-        annotate_patient_dir(patient_path, rev_hgmd, omim, lookup)
+        annotate_patient_dir(patient_path, rev_hgmd, omim, lookup,O)
     #if we are given a single file just annotate it normally
     elif os.path.isfile(patient_path):
         print "Given a single patient file!"
-        annotate_patient(patient_path, rev_hgmd, omim, lookup)
+        annotate_patient(patient_path, rev_hgmd, omim, lookup,O)
     else:
         print >> sys.stderr, "Patient file/folder not found or invalid"   
   
@@ -154,6 +159,7 @@ def parse_args(args):
     parser.add_argument('orphanet_inher',metavar='ORPHINHER', help='Orphanet XML file giving inheritance patterns')
     parser.add_argument('orphanet_geno_pheno',metavar='ORPHGENOPHENO', help = 'Orphanet XML file relating genotypic inheritance to phenotypic outcome')
     parser.add_argument('-I', '--Inheritance',nargs='+', choices=['AD','AR'], help='Which inheritance pattern sampled diseases should have, default is any, including unknown')
+    parser.add_argument('-O', help='Produce OMIM IDs rather than a list of phenotypes',action='store_true')
     return parser.parse_args(args)
 
 def main(args = sys.argv[1:]):
