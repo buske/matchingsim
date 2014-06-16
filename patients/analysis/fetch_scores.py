@@ -91,7 +91,7 @@ def script(vcf_ezr_paths, A, R, N=None):
 
 def parse_args(args):
     from argparse import ArgumentParser
-    parser = ArgumentParser(description='Annotate a vcf/ezr file with the top hit success rate')
+    parser = ArgumentParser(description='Annotate a vcf/ezr filled directory with the top hit success rate')
     parser.add_argument('-R',help='files to analyze were infected with autosomal recessive diseases (default is AD)', action='store_true')
     parser.add_argument('-A',help='check entire ezr ranking for a hit',action='store_true')
     parser.add_argument('-N',help='check if hit is in the top N entries',nargs=1)
