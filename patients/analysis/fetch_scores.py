@@ -38,7 +38,7 @@ def is_match(linevs, linee):
             return True
     return False
 
-def script(vcf_ezr_paths, A, R, E, N=None):
+def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
     if E:
         hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
     if N:
@@ -67,6 +67,12 @@ def script(vcf_ezr_paths, A, R, E, N=None):
         
         if E:
             Ecounter = defaultdict(lambda:[0,0])
+        
+        if RD:
+            singlecounter = 0
+            doublecounter = 0
+            singlecorr = 0
+            doublecorr = 0
 
         for vcf, ezr in zip(vcf_files, ezr_files):
             #if it is a recessive disease we may be pulling 2 lines
@@ -76,7 +82,13 @@ def script(vcf_ezr_paths, A, R, E, N=None):
                 v = get_last_line(os.path.join(vcf_ezr_path,vcf))
 
             elines = get_actual_lines(os.path.join(vcf_ezr_path,ezr))
-            efirst = elines[0] 
+            efirst = elines[0]
+            if RD:
+                singlecounter += len(v) == 1
+                doublecounter += len(v) == 2
+                singlecorr += len(v) == 1 and is_match(v,efirst)
+                doublecorr += len(v) == 2 and is_match(v,efirst)
+
             if is_match(v,efirst):
                 counter += 1
             if E:
@@ -105,7 +117,11 @@ def script(vcf_ezr_paths, A, R, E, N=None):
             for k,v in Ecounter.iteritems():
                 logging.info('Total patients for effect ' + k + ': ' + str(v[1]))
                 logging.info('Accuracy for effect ' + k + ': ' + str(float(v[0])/v[1]))
-
+        if RD:
+            logging.info('Total patients with a single inserted mutation: ' + str(singlecounter))
+            logging.info('Accuracy of single inserted mutation: ' + str(float(singlecorr)/ singlecounter))
+            logging.info('Total patients with two inserted mutations: ' + str(doublecounter))
+            logging.info('Accuracy of two inserted mutations: ' + str(float(doublecorr)/doublecounter))
 
 def parse_args(args):
     from argparse import ArgumentParser
@@ -114,6 +130,8 @@ def parse_args(args):
     parser.add_argument('-A',help='check entire ezr ranking for a hit',action='store_true')
     parser.add_argument('-N',help='check if hit is in the top N entries',nargs=1)
     parser.add_argument('-E',help='give info about accuracy per variant effect type',action='store_true')
+    parser.add_argument('-RD',help='for AR, give info about accuracy for single gene vs. 2 gene', action='store_true')
+    parser.add_argument('-D',help='give info about accuracy per disease',action='store_true')
     parser.add_argument('vcf_ezr_paths',metavar='DIR',nargs='+',help='the directory were vcf/ezr files are located')
     return parser.parse_args(args)
 
