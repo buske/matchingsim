@@ -8,6 +8,7 @@ import os
 import sys
 import logging
 
+from subprocess import call
 from collections import defaultdict
 from hgmd import HGMD
 
@@ -39,12 +40,12 @@ def is_match(linevs, linee):
     return False
 
 def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
-    if E:
+    if E or D:
         hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
     if N:
         N=int(N[0])
     for vcf_ezr_path in vcf_ezr_paths:
-        logging.basicConfig(filename = os.path.join(vcf_ezr_path, 'score.log'), level = logging.INFO)
+        logging.basicConfig(filename = os.path.join(vcf_ezr_path, 'score.log'), level = logging.INFO, filemode = 'w')
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
         formatter = logging.Formatter('%(levelname)s - %(message)s')
@@ -65,6 +66,9 @@ def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
         vcf_files.sort()
         ezr_files.sort()
         
+        if D:
+            Dcounter = defaultdict(lambda:[0,0]) 
+
         if E:
             Ecounter = defaultdict(lambda:[0,0])
         
@@ -91,6 +95,13 @@ def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
 
             if is_match(v,efirst):
                 counter += 1
+
+            if D:
+                id = next(x for x in hgmd.entries if x.chrom == v[0].split('\t')[0] and x.loc == v[0].split('\t')[1]).omimid
+                Dcounter[id][1] += 1
+                if is_match(v,efirst):
+                    Dcounter[id][0] += 1
+
             if E:
                 #find the effect of the inserted variant
                 effect = next(x for x in hgmd.entries if x.chrom == v[0].split('\t')[0] and x.loc == v[0].split('\t')[1]).effect
@@ -117,6 +128,16 @@ def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
             for k,v in Ecounter.iteritems():
                 logging.info('Total patients for effect ' + k + ': ' + str(v[1]))
                 logging.info('Accuracy for effect ' + k + ': ' + str(float(v[0])/v[1]))
+        if D: 
+            dis = Dcounter.items()
+            #we are sorting first by the number of cases, and within that by the success rate
+            dis.sort(key=lambda d: d[1][1] + max(float(d[1][0])/d[1][1]-0.001, 0), reverse=True)
+            for d in dis:
+                logging.info('Total patients for disease ' + d[0] + ': ' + str(d[1][1]))
+                logging.info('Accuracy for disease ' + d[0] + ': ' + str(float(d[1][0])/d[1][1]))
+                command = "grep " + d[0] + " | wc -l"
+                hits = call(command.split(' '))
+                logging.info('Orphanet hits for genotypic omim ' + d[0] + ': ' + hits)
         if RD:
             logging.info('Total patients with a single inserted mutation: ' + str(singlecounter))
             logging.info('Accuracy of single inserted mutation: ' + str(float(singlecorr)/ singlecounter))
