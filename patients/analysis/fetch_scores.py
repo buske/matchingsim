@@ -7,8 +7,8 @@ __author__ = 'Tal Friedman'
 import os
 import sys
 import logging
+import subprocess
 
-from subprocess import call
 from collections import defaultdict
 from hgmd import HGMD
 
@@ -135,8 +135,8 @@ def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
             for d in dis:
                 logging.info('Total patients for disease ' + d[0] + ': ' + str(d[1][1]))
                 logging.info('Accuracy for disease ' + d[0] + ': ' + str(float(d[1][0])/d[1][1]))
-                command = "grep " + d[0] + " | wc -l"
-                hits = call(command.split(' '))
+                command = "grep " + d[0] + " /dupa-filer/talf/matchingsim/patients/orphanet_geno_pheno.xml | wc -l"
+                hits = subprocess.check_output(command,shell=True)
                 logging.info('Orphanet hits for genotypic omim ' + d[0] + ': ' + hits)
         if RD:
             logging.info('Total patients with a single inserted mutation: ' + str(singlecounter))
