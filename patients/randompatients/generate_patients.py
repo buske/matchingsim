@@ -15,6 +15,14 @@ from orpha import Orphanet
 from hgmd import HGMD
 from omim import MIM
 
+def weighted_choice(choices, weights):
+    total = sum(weights)
+    threshold = random.uniform(0,total)
+    for k, weight in enumerate(weights):
+        total -= weight
+        if total < threshold:
+            return choices[k]
+
 #Assume orphanet disease has a phenotype entry
 def sample_phenotypes(omim, orph_disease):
     phenotypes = []
@@ -47,7 +55,7 @@ def annotate_patient(patient,rev_hgmd,omim,lookup,O):
         file = gzip.open(patient, 'ab')
         name = patient[:-7]        
 
-    orph_disease = lookup[random.choice(lookup.keys())]
+    orph_disease = lookup[weighted_choice(lookup.keys(),[len(rev_hgmd[x[2][0]]) for x in lookup.itervalues()])]
     phenotypes = sample_phenotypes(omim, orph_disease)
     
     #if autosomal recessive, if we only have one variant available use it as homozygous otherwise randomly (50/50) pick two and use as heterozygous or pick one as homozygous
