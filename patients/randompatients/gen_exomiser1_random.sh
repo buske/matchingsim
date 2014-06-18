@@ -7,6 +7,11 @@ then
     echo "$usage"  
     exit 1
 fi
+#ensure positional arguments are present
+if [ $# -lt 2 ]; then
+    echo "$usage"
+    exit 1
+fi
 
 set -eu
 set -o pipefail
@@ -24,11 +29,6 @@ else
 fi
 data=/dupa-filer/talf/matchingsim/patients
 
-#ensure positional arguments are present
-if [ $# -lt 2 ]; then
-    echo "$usage"
-    exit 1
-fi
 #location of files given first, number of files to generate is given as second argument
 loc=$1
 num=$2
