@@ -39,7 +39,7 @@ def is_match(linevs, linee):
             return True
     return False
 
-def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
+def script(vcf_ezr_paths, A, R, E, D, RD, V, N=None):
     if E or D:
         hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
     if D:
@@ -132,8 +132,12 @@ def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
                 logging.info('Accuracy for effect ' + k + ': ' + str(float(v[0])/v[1]))
         if D: 
             dis = Dcounter.items()
-            #we are sorting first by the number of cases, and within that by the success rate
-            dis.sort(key=lambda d: d[1][1] + max(float(d[1][0])/d[1][1]-0.001, 0), reverse=True)
+            if V:
+                dis.sort(key=lambda d: len(rev_hgmd[d[0]]), reverse=True)
+            else:
+                #we are sorting first by the number of cases, and within that by the success rate
+                dis.sort(key=lambda d: d[1][1] + max(float(d[1][0])/d[1][1]-0.001, 0), reverse=True)
+
             for d in dis:
                 logging.info('Total patients for disease ' + d[0] + ': ' + str(d[1][1]))
                 logging.info('Accuracy for disease ' + d[0] + ': ' + str(float(d[1][0])/d[1][1]))
@@ -157,6 +161,7 @@ def parse_args(args):
     parser.add_argument('-E',help='give info about accuracy per variant effect type',action='store_true')
     parser.add_argument('-RD',help='for AR, give info about accuracy for single gene vs. 2 gene', action='store_true')
     parser.add_argument('-D',help='give info about accuracy per disease',action='store_true')
+    parser.add_argument('-V',help='when per disease flag is given, sort diseases by number of associated variants',action='store_true')
     parser.add_argument('vcf_ezr_paths',metavar='DIR',nargs='+',help='the directory were vcf/ezr files are located')
     return parser.parse_args(args)
 
