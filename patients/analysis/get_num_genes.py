@@ -20,8 +20,8 @@ def script(ezr_paths):
         num_genes = 0
         num_variants = 0
         max_genes = 0
-        min_genes = 0
-        min_variants = 0
+        min_genes = 100000000
+        min_variants = 1000000
         max_variants = 0
         contents = os.listdir(ezr_path)
         ezr_files = filter(lambda f: f.endswith('.ezr'),contents)
