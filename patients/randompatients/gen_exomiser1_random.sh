@@ -29,6 +29,8 @@ else
 fi
 data=/dupa-filer/talf/matchingsim/patients
 
+delay=20
+
 #location of files given first, number of files to generate is given as second argument
 loc=$1
 num=$2
@@ -53,7 +55,7 @@ do
     if [ ! -f "$out"/\$f.ezr ]
     then
         qsub -S /bin/sh "$out/scripts/dispatch_\$f.sh"
-        sleep 30 
+        sleep $delay
     fi
 done
 EOF
@@ -117,6 +119,6 @@ EOF
     #Submit
     qsub -S /bin/sh "$script"
     #wait so we don't overload cluster
-    sleep 30 
+    sleep $delay
 done
 
