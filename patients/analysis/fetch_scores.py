@@ -42,6 +42,8 @@ def is_match(linevs, linee):
 def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
     if E or D:
         hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
+    if D:
+        rev_hgmd = hgmd.get_by_omim()
     if N:
         N=int(N[0])
     for vcf_ezr_path in vcf_ezr_paths:
@@ -137,7 +139,9 @@ def script(vcf_ezr_paths, A, R, E, D, RD, N=None):
                 logging.info('Accuracy for disease ' + d[0] + ': ' + str(float(d[1][0])/d[1][1]))
                 command = "grep " + d[0] + " /dupa-filer/talf/matchingsim/patients/orphanet_geno_pheno.xml | wc -l"
                 hits = subprocess.check_output(command,shell=True)
-                logging.info('Orphanet hits for genotypic omim ' + d[0] + ': ' + hits)
+                logging.info('Orphanet hits for genotypic omim ' + d[0] + ': ' + hits.strip())
+                logging.info('#of variants for genotypic omim ' + d[0] + ': ' + str(len(rev_hgmd[d[0]]))+ '\n')
+                #count number of variants for genotypic omim
         if RD:
             logging.info('Total patients with a single inserted mutation: ' + str(singlecounter))
             logging.info('Accuracy of single inserted mutation: ' + str(float(singlecorr)/ singlecounter))
