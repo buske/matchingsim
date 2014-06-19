@@ -137,7 +137,10 @@ def script(vcf_ezr_paths, A, R, E, D, RD, V, N=None):
             else:
                 #we are sorting first by the number of cases, and within that by the success rate
                 dis.sort(key=lambda d: d[1][1] + max(float(d[1][0])/d[1][1]-0.001, 0), reverse=True)
-
+            highcounter = 0
+            lowcounter = 0
+            zerocounter = 0
+            totalcounter = 0
             for d in dis:
                 logging.info('Total patients for disease ' + d[0] + ': ' + str(d[1][1]))
                 logging.info('Accuracy for disease ' + d[0] + ': ' + str(float(d[1][0])/d[1][1]))
@@ -145,7 +148,21 @@ def script(vcf_ezr_paths, A, R, E, D, RD, V, N=None):
                 hits = subprocess.check_output(command,shell=True)
                 logging.info('Orphanet hits for genotypic omim ' + d[0] + ': ' + hits.strip())
                 logging.info('#of variants for genotypic omim ' + d[0] + ': ' + str(len(rev_hgmd[d[0]]))+ '\n')
-                #count number of variants for genotypic omim
+                #check what percentage of total is either below 30 or above 60%
+                if d[1][1] > 2:
+                    totalcounter += d[1][1]
+                    if float(d[1][0])/d[1][1] < 0.3: 
+                        lowcounter += d[1][1]
+                    elif float(d[1][0])/d[1][1] > 0.6: 
+                        highcounter += d[1][1]
+                    if d[1][0] == 0:
+                        zerocounter += d[1][1]
+
+            logging.info(str(lowcounter) + ' patients have a disease with accuracy < 30% (from diseases with > 2 patients)')
+            logging.info(str(highcounter) + ' patients have a disease with accuracy > 60% (from diseases with > 2 patients)')
+            logging.info(str(zerocounter) + ' patients a have a disease with accuracy 0% (from diseases with > 2 patients)')
+            logging.info(str(float(lowcounter + highcounter) / totalcounter) + 'of patients have a disease in one of these ranges of diseases with > 2 patients')
+        
         if RD:
             logging.info('Total patients with a single inserted mutation: ' + str(singlecounter))
             logging.info('Accuracy of single inserted mutation: ' + str(float(singlecorr)/ singlecounter))
