@@ -101,6 +101,43 @@ class Orphanet:
             out.write(str(n_one_geno) + " entries with one OMIM Geno entry\n")
             out.write(str(n_many_geno) + " entries with many OMIM Geno entries\n")
             out.write(str(n_ideal) + " ideal entries (1 of each)")
+    
+    @classmethod
+    def has_pattern(cls, patterns, o):
+        return any(x in patterns for x in o[1])
+
+    @classmethod
+    def has_pheno(cls, omim, o):
+        return any(x.id == o[0][0] for x in omim)
+
+    @classmethod
+    #ensure that all elements of lookup are entirely useable
+    def correct_lookup(cls, lookup, omim,rev_hgmd, Inheritance=None):
+        #get ideal orphanet cases
+        newlook = {}
+        for k,v in lookup.iteritems():
+            if len(v[0]) == 1 and len(v[1]) == 1 and len(v[2]) == 1:
+                newlook[k] = v
+        #get the right disease set based on inheritance
+        if Inheritance:
+            patterns = []
+            if 'AD' in Inheritance:
+                 patterns.append('Autosomal dominant')
+            if 'AR' in Inheritance:
+                patterns.append('Autosomal recessive')
+            newlook = {k:v for k,v in newlook.iteritems() if cls.has_pattern(patterns, v)}
+        
+        #ensure all orphanet cases have phenotypic annotations
+        lookup = {k:v for k,v in newlook.iteritems() if cls.has_pheno(omim, v)}
+        #ensure all orphanet cases have at least one associated variant
+        newlook = {}
+        for k, o in lookup.iteritems():
+            try:
+                a = rev_hgmd[o[2][0]]
+                newlook[k] = o
+            except KeyError:
+                pass
+        return newlook
 
 if __name__ == '__main__':
     orph = Orphanet('/dupa-filer/talf/matchingsim/patients/orphanet_lookup.xml', '/dupa-filer/talf/matchingsim/patients/orphanet_inher.xml', '/dupa-filer/talf/matchingsim/patients/orphanet_geno_pheno.xml')

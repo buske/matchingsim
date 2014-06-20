@@ -180,7 +180,7 @@ def parse_args(args):
     parser.add_argument('-RD',help='for AR, give info about accuracy for single gene vs. 2 gene', action='store_true')
     parser.add_argument('-D',help='give info about accuracy per disease',action='store_true')
     parser.add_argument('-V',help='when per disease flag is given, sort diseases by number of associated variants',action='store_true')
-    parser.add_argument('vcf_ezr_paths',metavar='DIR',nargs='+',help='the directory were vcf/ezr files are located')
+    parser.add_argument('vcf_ezr_paths',metavar='DIR',nargs='+',help='the directory where vcf/ezr files are located')
     return parser.parse_args(args)
 
 def main(args = sys.argv[1:]):
