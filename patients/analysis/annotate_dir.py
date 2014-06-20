@@ -77,7 +77,7 @@ def script(path, R):
             if len(v) > 1:
                 file.write('Variant: ' + str(v[1]).strip() + '\n')
             file.write('Genotypic OMIM: ' + str(id) + '\n')
-            file.write('Phenotypic OMIML ' + str(pheno_id) + '\n')
+            file.write('Phenotypic OMIM: ' + str(pheno_id) + '\n')
             
 def parse_args(args):
     parser = ArgumentParser(description='Add a text file annotation for each vcf/ezr pair in a directory')
