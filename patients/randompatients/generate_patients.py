@@ -15,6 +15,7 @@ from orpha import Orphanet
 from hgmd import HGMD
 from omim import MIM
 
+#Choices and weights should be parallel corresponding lists
 def weighted_choice(choices, weights):
     total = sum(weights)
     threshold = random.uniform(0,total)
@@ -26,7 +27,7 @@ def weighted_choice(choices, weights):
 #Assume orphanet disease has a phenotype entry
 def sample_phenotypes(omim, orph_disease):
     phenotypes = []
-    omimd = next(x for x in omim if x.id == orph_disease[0][0])
+    omimd = next(x for x in omim if x.id == orph_disease.pheno[0])
     for pheno, freq in omimd.phenotype_freqs.iteritems():
         if not freq:
             phenotypes.append(pheno)
@@ -55,33 +56,30 @@ def annotate_patient(patient,rev_hgmd,omim,lookup,O):
         file = gzip.open(patient, 'ab')
         name = patient[:-7]        
 
-    orph_disease = lookup[weighted_choice(lookup.keys(),[len(rev_hgmd[x[2][0]]) for x in lookup.itervalues()])]
+    orph_disease = lookup[weighted_choice(lookup.keys(),[len(rev_hgmd[x.geno[0]]) for x in lookup.itervalues()])]
     phenotypes = sample_phenotypes(omim, orph_disease)
     
     #if autosomal recessive, if we only have one variant available use it as homozygous otherwise randomly (50/50) pick two and use as heterozygous or pick one as homozygous
-    if orph_disease[1][0] == 'Autosomal recessive':
-        if len(rev_hgmd[orph_disease[2][0]]) == 1 or random.random() < 0.5:
-            var = rev_hgmd[orph_disease[2][0]][0]
+    if orph_disease.inheritance[0] == 'Autosomal recessive':
+        if len(rev_hgmd[orph_disease.geno[0]]) == 1 or random.random() < 0.5:
+            var = rev_hgmd[orph_disease.geno[0]][0]
             file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','1|1'])+'\n')
         else:
-            vars = random.sample(rev_hgmd[orph_disease[2][0]], 2)
+            vars = random.sample(rev_hgmd[orph_disease.geno[0]], 2)
             for var in vars:
                 file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
                     
     #If AD (or something else, but those should never happen) then one heterozygous mutation added
     else:
-        var = random.choice(rev_hgmd[orph_disease[2][0]])
+        var = random.choice(rev_hgmd[orph_disease.geno[0]])
         file.write('\t'.join([var.chrom,var.loc,'.',var.ref,var.alt,'100','PASS','.','GT','0|1'])+'\n')
     
     if O:
         hpo = open(name + '_omim.txt','w')
-        hpo.write(orph_disease[0][0])
+        hpo.write(orph_disease.pheno[0])
     else:
         hpo = open(name + '_hpo.txt','w')
-        hpo.write(phenotypes[0])
-        for p in phenotypes[1:]:
-            hpo.write(','+p) 
-
+        hpo.write(','.join(phenotypes))
     hpo.close()
     file.close() 
 
@@ -91,18 +89,15 @@ def annotate_patient_dir(pdir,rev_hgmd,omim,lookup,O):
             annotate_patient(os.path.join(pdir,f),rev_hgmd,omim,lookup,O) 
 
 def has_pattern(patterns, o):
-    return any(x in patterns for x in o[1])
+    return any(x in patterns for x in o.inheritance)
 
 def has_pheno(omim, o):
-    return any(x.id == o[0][0] for x in omim)
+    return any(x.id == o.pheno[0] for x in omim)
 
 #ensure that all elements of lookup are entirely useable
 def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
     #get ideal orphanet cases
-    newlook = {}
-    for k,v in lookup.iteritems():
-        if len(v[0]) == 1 and len(v[1]) == 1 and len(v[2]) == 1:
-            newlook[k] = v
+    newlook = {k:v for k,v in lookup.iteritems() if len(v.pheno) == 1 and len(v.inheritance) == 1 and len(v.geno) == 1}
     #get the right disease set based on inheritance
     if Inheritance:
         patterns = []
@@ -110,7 +105,7 @@ def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
              patterns.append('Autosomal dominant')
         if 'AR' in Inheritance:
             patterns.append('Autosomal recessive')
-        newlook = {k:v for k,v in newlook.iteritems() if has_pattern(patterns, v)}
+        newlook ={k:v for k,v in newlook.iteritems() if has_pattern(patterns, v)}
     
     #ensure all orphanet cases have phenotypic annotations
     lookup = {k:v for k,v in newlook.iteritems() if has_pheno(omim, v)}
@@ -118,7 +113,7 @@ def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
     newlook = {}
     for k, o in lookup.iteritems():
         try:
-            a = rev_hgmd[o[2][0]]
+            a = rev_hgmd[o.geno[0]]
             newlook[k] = o
         except KeyError:
             pass
@@ -144,7 +139,7 @@ def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher,
 
     #get hgmd variants by omim
     rev_hgmd = hgmd.get_by_omim()
-
+    print orph.lookup
     lookup = correct_lookup(orph.lookup,omim,rev_hgmd,Inheritance)
     #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):

@@ -33,26 +33,28 @@ class MIM:
 
     @classmethod
     def iter_disease_lines(cls, filename):
-        with open(filename) as ifp:
-            cur_disease = None
-            cur_lines = []
-            for line in ifp:
-                line = line.rstrip()
-                tokens = line.split('\t')
-                if len(tokens) == 1: continue
-                disease = (tokens[0].strip(), tokens[1].strip())
+        try:
+            with open(filename) as ifp:
+                cur_disease = None
+                cur_lines = []
+                for line in ifp:
+                    line = line.rstrip()
+                    tokens = line.split('\t')
+                    if len(tokens) == 1: continue
+                    disease = (tokens[0].strip(), tokens[1].strip())
 
-                if disease == cur_disease:
-                    cur_lines.append(tokens)
-                else:
-                    if cur_disease:
-                        yield cur_disease, cur_lines
+                    if disease == cur_disease:
+                        cur_lines.append(tokens)
+                    else:
+                        if cur_disease:
+                            yield cur_disease, cur_lines
 
-                    cur_lines = [tokens]
-                    cur_disease = disease
-            if cur_disease:
-                yield cur_disease, cur_lines
-
+                        cur_lines = [tokens]
+                        cur_disease = disease
+                if cur_disease:
+                    yield cur_disease, cur_lines
+        except IOError:
+            raise
     @classmethod
     def parse_frequency(cls, s, default=None):
         """Return float parsed frequency or default if problem or absent"""
