@@ -122,24 +122,27 @@ def correct_lookup(lookup, omim,rev_hgmd, Inheritance=None):
 def script(pheno_file, hgmd_file, patient_path, orphanet_lookup, orphanet_inher, orphanet_geno_pheno,  O, Inheritance=None):
     try:
         mim = MIM(pheno_file)
-    except IOError:
-        print >> sys.stderr, "OMIM file not found or invalid"
- 
+    except IOError, e:
+        print >> sys.stderr, e 
+        sys.exit(1)
+
     omim = filter(lambda d:d.db == 'OMIM',mim.diseases)
 
     try:    
         hgmd = HGMD(hgmd_file)
-    except IOError:
-        print >> sys.stderr, "HGMD file not found or invalid"
-   
+    except IOError, e:
+        print >> sys.stderr, e 
+        sys.exit(1)
+
     try:
         orph = Orphanet(orphanet_lookup,orphanet_inher, orphanet_geno_pheno)
-    except IOError:
-        print >> sys.stderr, "Orphanet files not found or invalid"
+    except IOError, e:
+        print >> sys.stderr, e
+        sys.exit(1)
 
     #get hgmd variants by omim
     rev_hgmd = hgmd.get_by_omim()
-    print orph.lookup
+    
     lookup = correct_lookup(orph.lookup,omim,rev_hgmd,Inheritance)
     #if we are given a directory, annotate each vcf.gz or vcf file in the directory assuming it is a patient 
     if os.path.isdir(patient_path):
