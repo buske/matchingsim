@@ -69,7 +69,7 @@ def script(path, R):
         elines = get_actual_lines(os.path.join(path, ezr))
         rank = get_rank(v, elines)
         id = next(x for x in hgmd.entries if x.chrom == v[0].split('\t')[0] and x.loc == v[0].split('\t')[1]).omimid    
-        pheno_id = next(x for x in lookup.itervalues() if x[2][0] == id)[0][0]
+        pheno_id = next(x for x in lookup.itervalues() if x.geno[0] == id).pheno[0]
 
         with open(os.path.join(path, vcf[:-4] + '.txt'), 'w') as file:
             file.write('Rank of inserted variant: ' + str(rank) + '\n')
