@@ -20,10 +20,7 @@ class Orphanet:
     
     @classmethod
     def parse_lookup(cls, filename):
-        try:
-            tree = ET.parse(filename)
-        except IOError:
-            raise
+        tree = ET.parse(filename)
         root = tree.getroot()
         lookup = defaultdict(Disease) # orphanet -> omim
         for disorder in root.findall('.//Disorder'):
@@ -36,10 +33,7 @@ class Orphanet:
 
     @classmethod
     def parse_inheritance(cls, filename, lookup):
-        try:
-            tree = ET.parse(filename)
-        except IOError:
-            raise
+        tree = ET.parse(filename)
         root = tree.getroot()
         inheritance = defaultdict(list) # omim -> inheritance pattern list
         for disorder in root.findall('.//Disorder'):
@@ -58,10 +52,7 @@ class Orphanet:
         
     @classmethod
     def parse_geno_pheno(cls, filename, lookup):
-        try:
-            tree = ET.parse(filename)
-        except IOError:
-            raise
+        tree = ET.parse(filename)
         root = tree.getroot()
         counter = 0
         for disorder in root.findall('.//Disorder'):
