@@ -141,12 +141,12 @@ class Orphanet:
         return any(x in patterns for x in o.inheritance)
 
     @classmethod
-    def has_pheno(cls, omim, o):
-        return any(x.id == o.pheno[0] for x in omim)
+    def has_pheno(cls, omim_dict, o):
+        return o.pheno[0] in omim_dict
 
     @classmethod
     #ensure that all elements of lookup are entirely useable
-    def correct_lookup(cls, lookup, omim,rev_hgmd, Inheritance=None):
+    def correct_lookup(cls, lookup, omim_dict, rev_hgmd, Inheritance=None):
         #get ideal orphanet cases
         newlook = {k:v for k,v in lookup.iteritems() if len(v.pheno) == 1 and len(v.inheritance) == 1 and len(v.geno) == 1}
         #get the right disease set based on inheritance
@@ -159,7 +159,7 @@ class Orphanet:
             newlook ={k:v for k,v in newlook.iteritems() if cls.has_pattern(patterns, v)}
         
         #ensure all orphanet cases have phenotypic annotations
-        lookup = {k:v for k,v in newlook.iteritems() if cls.has_pheno(omim, v)}
+        lookup = {k:v for k,v in newlook.iteritems() if cls.has_pheno(omim_dict, v)}
         #ensure all orphanet cases have at least one associated variant
         newlook = {}
         for k, o in lookup.iteritems():

@@ -15,8 +15,8 @@ import os
 import sys
 import shutil
 import logging
+import random
 
-from random import Random
 from collections import defaultdict
 from argparse import ArgumentParser
 from orpha import Orphanet
@@ -24,7 +24,7 @@ from hgmd import HGMD
 from omim import MIM
 
 
-__author__ = 'Tal Friedman'
+__author__ = 'Tal Friedman (talf301@gmail.com)'
 
 def sample_phenotypes(omim, orph_disease):
     """Sample phenotypes randomly from an orphanet disease
@@ -47,8 +47,12 @@ def sample_phenotypes(omim, orph_disease):
     try:
         omim_dis = omim[omim_id]
     except KeyError:
+        logging.warning('Could not find OMIM entry for %s' % omim_id)
 
-    for pheno, freq in omim_dis.phenotype_freqs.iteritems():
+    # If frequency available, we will sample, otherwise just include
+    phenotype_freqs = omim_dis.phenotype_freqs
+    assert phenotype_freqs, "Missing phenotypes for: %s" % omim_id
+    for pheno, freq in phenotype_freqs.iteritems():
         if not freq:
             phenotypes.append(pheno)
         else:
@@ -57,16 +61,87 @@ def sample_phenotypes(omim, orph_disease):
     if phenotypes:
         return phenotypes
     else:
-        #we don't want an empty phenotype list
-        return sample_phenotypes(omim, orph_disease)
+        logging.warning("Random phenotype sampling for %s resulted in"
+                " empty set" % omim_id)
+        return sample_phenotypes(omim_dict, orph_disease)
 
+def sample_variants(rev_hgmd, orph_disease)
+    """Sample variants randomly from an orphanet disease
 
-def infect_patient(patient,disease,omim,rev_hgmd):
-    phenotypes = sample_phenotypes(omim, disease)
+    Args:
+        rev_hgmd: A dict of OMIM number: list(hgmd.Entry)
+        orph_disease: An orpha.Disease instance to be sampled from
+
+    Returns:
+        A list of (variant, homozygous?) tuples
+    """
+    variants = []
+
+    # Grab inheritance pattern and list of associated variants
+    inheritance = orph_disease.inheritance[0]
+    hgmd_variants = rev_hgmd[orph_disease.geno[0]]
+
+    if inheritance == 'Autosomal recessive':
+        if len(hgmd_variants) == 1 or random.random() < 0.5:
+            # One hom variant
+            variants.append((random.choice(hgmd_variants), True))
+        else:
+            # Two het variants
+            vars = random.sample(hgmd_variants, 2)
+            for var in vars:
+                variants.append((var, False))
+    elif inheritance == 'Autosomal dominant':
+        # If AD then one het variant added
+        variants.append((random.choice(hgmd_variants), False))
+    else:
+        raise NotImplementedError('Unexpected inheritance: %s' % inheritance)
+
+    return variants
+
+def generate_vcf_line(var, hom=False):
+    """Return newline-terminated VCF line for given variant"""
+    gt = '1/1' if hom else '0/1'
+    return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
+        var.alt, '255', 'PASS', '.', 'GT', gt]
+
+def infect_patient(patient, orph_disease, omim_dict, rev_hgmd):
+    """Infect patients by inserting harmful variants and
+    producing a file with list of phenotypes associated 
+    with disease
     
+    Args:
+        patient: a string containing the path to the patient vcf
+        orph_disease: an orpha.Disease instance to infect patient with
+        omim: a dict of OMIM number: omim.Disease
+        rev_hgmd: a dict of OMIM number: list(hgmd.Entry)
+    """
+    # Sample phenotypes and variants
+    phenotypes = sample_phenotypes(omim_dict, orph_disease)
+    variants = sample_variants(rev_hgmd, orph_disease)
 
-#Choices and weights should be parallel corresponding lists
+    assert patient.endswith('.vcf')
+
+    # If patient is HG01.vcf, phenotypes will be stored in HG01_hpo.txt 
+    pheno_file = patient[:-4] + '_hpo.txt'
+    with open(pheno_file, 'w') as hpo:
+        hpo.write(','.join(phenotypes))
+
+    with open(patient, 'a') as vcf:
+        for variant, hom in variants:
+            vcf.write(generate_vcf_line(variant, hom=hom))
+    
 def weighted_choice(choices, weights):
+    """Return a random choice, given corresponding weights
+    
+    Args:
+        choices: a list of options to choose from
+        weights: a list of numeric weights, one per choice
+        choices and weights must be parallel corresponding lists
+
+    Returns:
+        a random element from choices
+    """
+    assert len(choices) == len(weights)
     total = sum(weights)
     threshold = random.uniform(0,total)
     for k, weight in enumerate(weights):
@@ -75,47 +150,61 @@ def weighted_choice(choices, weights):
             return choices[k]
 
 def load_data(data_path):
-    #load hgmd
+    """Load all the required data files the program needs
+    
+    Args:
+        data_path: String file path to the directory files are in
+
+    Returns
+        (HGMD, list(omim.Disease), Orphanet)
+    """
+    # Load hgmd
     hgmd = HGMD(os.path.join(data_path, 'hgmd_correct.jv.vcf'))
   
-    #load and filter OMIM
+    # Load and filter OMIM into an OMIM number: Disease dict
     mim = MIM(os.path.join(data_path, 'phenotype_annotation.tab'))
     omim = filter(lambda d:d.db == 'OMIM', mim.diseases)
+    omim_dict = {dis.id:dis for dis in omim}
 
-    #grab orphanet file names and then load orphanet data
+    # Grab orphanet file names and then load orphanet data
     orphanet_lookup = os.path.join(data_path, 'orphanet_lookup.xml')
     orphanet_inher = os.path.join(data_path, 'orphanet_inher.xml')
     orphanet_geno_pheno = os.path.join(data_path, 'orphanet_geno_pheno.xml')
     orph = Orphanet(orphanet_lookup, orphanet_inher, orphanet_geno_pheno)
 
-    return hgmd, omim, orph
+    return hgmd, omim_dict, orph
 
-def script(data_path, vcf_path, out_path, N, I=None):
+def script(data_path, vcf_path, out_path, num_pairs, inheritance=None):
     try:
-        hgmd, omim, orph = load_data(data_path)
+        hgmd, omim_dict, orph = load_data(data_path)
     except IOError, e:
-        print >> sys.stderr, e
+        logging.error(e)
         sys.exit(1)
    
-    #Set up our corrected lookup
+    # Set up our corrected lookup
     rev_hgmd = hgmd.get_by_omim()
-    lookup = orph.correct_lookup(orph.lookup, omim, rev_hgmd, Inheritance)
+    lookup = orph.correct_lookup(orph.lookup, omim_dict, rev_hgmd, Inheritance)
 
-    #First, need to check there are at least 2 vcffiles
+    # First, need to check there are at least 2 vcffiles
     contents = os.listdir(vcf_path)
     vcf_files = filter(lambda x: x.endswith('.vcf'), contents)
     assert len(vcf_files) > 2, "Need at least 2 vcf files"
  
-    for i in range(N):
-        #first, copy pair
+    for i in range(num_pairs):
+        # First, copy pair
         old_pair = Random.sample(vcf_files, 2)
         new_pair = map(lambda x: x[:-4] + '_' + str(i) + '.vcf', old_pair)
         for old, new in zip(old_pair, new_pair):
             shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
 
-        #next, get a disease
-        #We do a weighted sample based on the number of associated harmful variants
-        disease = lookup[weighted_choice(lookup.keys(), [len(rev_hgmd[x.geno[0]]) for x in lookup.itervalues()])]
+        # Next, get a disease
+        # We do a weighted sample based on the number of associated harmful variants
+        disease = lookup[weighted_choice(lookup.keys(), 
+            [len(rev_hgmd[x.geno[0]]) for x in lookup.itervalues()])]
+        
+        # Finally, infect both patients with disease
+        for patient in new_pair:
+            infect_patient(os.path.join(out_path, new), disease, omim_dict, rev_hgmd)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
@@ -126,15 +215,18 @@ def parse_args(args):
             help='Directory from which to take .vcf and .vcf.gz')
     parser.add_argument('out_path', metavar='OUT', 
             help='Directory where to put the generated patient files')
-    parser.add_argument('-N', type=int, 
+    parser.add_argument('-N', type=int, dest='num_pairs'
             help='Number of pairs of patients to generate', required=True)
-    parser.add_argument('-I', '--Inheritance',nargs='+',
+    parser.add_argument('-I', '--inheritance',nargs='+',
             choices=['AD','AR'], 
             help='Which inheritance pattern sampled diseases should have')
+    parser.add_argument('--logging', default='WARNING',
+            help='Logging level (e.g. DEBUG, ERROR)')
     return parser.parse_args(args)
 
 def main(args = sys.argv[1:]):
     args = parse_args(args)
+    logging.basicConfig(level=args.logging)
     script(**vars(args))
 
 if __name__ == '__main__':
