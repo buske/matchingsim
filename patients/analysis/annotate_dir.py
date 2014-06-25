@@ -51,7 +51,8 @@ def script(path, R):
     orph = Orphanet('/dupa-filer/talf/matchingsim/patients/orphanet_lookup.xml', '/dupa-filer/talf/matchingsim/patients/orphanet_inher.xml', '/dupa-filer/talf/matchingsim/patients/orphanet_geno_pheno.xml')
     omim = MIM('/dupa-filer/talf/matchingsim/patients/phenotype_annotation.tab')
     omim = filter(lambda x:x.db == 'OMIM', omim.diseases)
-    lookup = orph.correct_lookup(orph.lookup,omim,rev_hgmd)
+    omim_dict = {dis.id:dis for dis in omim}
+    lookup = orph.correct_lookup(orph.lookup,omim_dict,rev_hgmd)
     contents = os.listdir(path)
     vcf_files = filter(lambda f: f.endswith('.vcf'), contents)
     ezr_files = filter(lambda f: f.endswith('.ezr'), contents)
