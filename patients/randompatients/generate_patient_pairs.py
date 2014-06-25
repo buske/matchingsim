@@ -65,7 +65,7 @@ def sample_phenotypes(omim, orph_disease):
                 " empty set" % omim_id)
         return sample_phenotypes(omim_dict, orph_disease)
 
-def sample_variants(rev_hgmd, orph_disease)
+def sample_variants(rev_hgmd, orph_disease):
     """Sample variants randomly from an orphanet disease
 
     Args:
@@ -102,7 +102,7 @@ def generate_vcf_line(var, hom=False):
     """Return newline-terminated VCF line for given variant"""
     gt = '1/1' if hom else '0/1'
     return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
-        var.alt, '255', 'PASS', '.', 'GT', gt]
+        var.alt, '255', 'PASS', '.', 'GT', gt])
 
 def infect_patient(patient, orph_disease, omim_dict, rev_hgmd):
     """Infect patients by inserting harmful variants and
@@ -174,7 +174,7 @@ def load_data(data_path):
 
     return hgmd, omim_dict, orph
 
-def script(data_path, vcf_path, out_path, num_pairs, inheritance=None):
+def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs):
     try:
         hgmd, omim_dict, orph = load_data(data_path)
     except IOError, e:
@@ -183,7 +183,7 @@ def script(data_path, vcf_path, out_path, num_pairs, inheritance=None):
    
     # Set up our corrected lookup
     rev_hgmd = hgmd.get_by_omim()
-    lookup = orph.correct_lookup(orph.lookup, omim_dict, rev_hgmd, Inheritance)
+    orph_diseases = orph.correct_lookup(orph.lookup, omim_dict, rev_hgmd, inheritance)
 
     # First, need to check there are at least 2 vcffiles
     contents = os.listdir(vcf_path)
@@ -192,30 +192,30 @@ def script(data_path, vcf_path, out_path, num_pairs, inheritance=None):
  
     for i in range(num_pairs):
         # First, copy pair
-        old_pair = Random.sample(vcf_files, 2)
+        old_pair = random.sample(vcf_files, 2)
         new_pair = map(lambda x: x[:-4] + '_' + str(i) + '.vcf', old_pair)
         for old, new in zip(old_pair, new_pair):
             shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
 
         # Next, get a disease
         # We do a weighted sample based on the number of associated harmful variants
-        disease = lookup[weighted_choice(lookup.keys(), 
-            [len(rev_hgmd[x.geno[0]]) for x in lookup.itervalues()])]
+        disease = orph_diseases[weighted_choice(orph_diseases.keys(), 
+            [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])]
         
         # Finally, infect both patients with disease
         for patient in new_pair:
-            infect_patient(os.path.join(out_path, new), disease, omim_dict, rev_hgmd)
+            infect_patient(os.path.join(out_path, patient), disease, omim_dict, rev_hgmd)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
 
-    praser.add_argument('data_path', metavar='DATA', 
+    parser.add_argument('data_path', metavar='DATA', 
             help='Directory from which to grab data files')
-    parser.add_arguemnt('vcf_path', metavar='IN', 
+    parser.add_argument('vcf_path', metavar='IN', 
             help='Directory from which to take .vcf and .vcf.gz')
     parser.add_argument('out_path', metavar='OUT', 
             help='Directory where to put the generated patient files')
-    parser.add_argument('-N', type=int, dest='num_pairs'
+    parser.add_argument('-N', type=int, dest='num_pairs',
             help='Number of pairs of patients to generate', required=True)
     parser.add_argument('-I', '--inheritance',nargs='+',
             choices=['AD','AR'], 
