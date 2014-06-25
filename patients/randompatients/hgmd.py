@@ -1,7 +1,20 @@
+#!/usr/bin/env python
+
+
+"""
+Parse an hgmd file in vcf format annotated (by Jannovar), returning an easy to use format.
+"""
+
+
+__author__ = 'Tal Friedman (talf301@gmail.com)'
+
+
 import os
 import sys
+import logging
 
 from collections import defaultdict
+
 
 class Entry:
     def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid):
@@ -12,6 +25,10 @@ class Entry:
         self.effect = effect
         self.omimid = omimid
         self.pmid = pmid
+        # Casts will raise an error if things that should be ints aren't ints
+        int(loc)
+        int(omimid)
+        int(pmid)
     
     def __str__(self):
         return [self.chrom, self.loc, self.ref, self.alt, self.effect, self.omimid, self.pmid].__str__()
@@ -37,10 +54,18 @@ class HGMD:
                 if line == '\n': continue
                 if line[0] == '#': continue
                 info = line.split('\t')
-                effect = info[7].split(';')[0].split('=')[1]
-                omimid = info[7].split(';')[2].split(':')[1]
-                pmid = info[7].split(';')[3].split(':')[1]      
-                yield Entry(info[0],info[1],info[3],info[4],effect,pmid,omimid)
+                assert len(info) == 10, "Malformed line %s" % line
+                
+                try:
+                    effect = info[7].split(';')[0].split('=')[1]
+                    omimid = info[7].split(';')[2].split(':')[1]
+                    pmid = info[7].split(';')[3].split(':')[1]      
+                except IndexError:
+                    logging.error("Malformed line %s" % line)
+                try:
+                    yield Entry(info[0],info[1],info[3],info[4],effect,pmid,omimid)
+                except ValueError:
+                    logging.error("Malformed line %s" % line)
  
     def __str__(self):
         return self.entries.__str__()
@@ -60,5 +85,8 @@ class HGMD:
         return ret
 
 if __name__ == '__main__':
-    hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
+    try:
+        hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
+    except IOError, e:
+        logging.error(e)
     print "Success!"
