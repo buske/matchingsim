@@ -27,7 +27,6 @@ class Entry:
         # Casts will raise an error if things that should be ints aren't ints
         int(loc)
         int(omimid)
-        int(pmid)
     
     def __str__(self):
         return [self.chrom, self.loc, self.ref, self.alt, self.effect, self.omimid, self.pmid].__str__()
@@ -52,7 +51,8 @@ class HGMD:
             for line in hgmd:
                 if line == '\n': continue
                 if line[0] == '#': continue
-                info = line.split('\t')
+
+                info = line.rstrip().split('\t')
                 assert len(info) == 10, "Malformed line %s" % line
                 
                 try:
