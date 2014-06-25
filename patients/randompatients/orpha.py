@@ -1,9 +1,21 @@
 #!/usr/bin/env python
 
+"""
+Parser a collection of orphanet files together to get a useable lookup table of 
+diseases with associated genotypic and phenotypic OMIMs as well as inheritance
+patterns.
+"""
+
+
 import os
 import sys
+import logging
+
 from collections import defaultdict
 import xml.etree.ElementTree as ET
+
+
+__author__ = 'Tal Friedman (talf301@gmail.com)'
 
 class Disease:
     def __init__(self):
@@ -28,6 +40,12 @@ class Orphanet:
             for ref in disorder.findall('./ExternalReferenceList/ExternalReference'):
                 if ref.find('Source').text == 'OMIM':
                     omim = ref.find('Reference').text
+                    # Ensure Orphanum and OMIM are numeric
+                    try:
+                        int(omim)
+                        int(orphanum)
+                    except ValueError:
+                        logging.error("Malformed OMIM or Orphanum at %s" % orphanum)
                     lookup[orphanum].pheno.append(omim)
         return lookup
 
@@ -45,6 +63,10 @@ class Orphanet:
                 continue
             for inher in  disorder.findall('./TypeOfInheritanceList/TypeOfInheritance'):
                 pattern = inher.find('Name').text
+                assert pattern in ['X-linked dominant', 'Mitochondrial inheritance', \
+                        'Unknown', 'Autosomal recessive', 'Multigenic/multifactorial', \
+                        'X-linked recessive', 'Sporadic', 'Autosomal dominant', \
+                        'No data available'], "Unrecognized inheritance pattern %s" % pattern
                 lookup[orphanum].inheritance.append(pattern)
                 for id in ids:
                     inheritance[id].append(pattern)
@@ -61,6 +83,12 @@ class Orphanet:
             for ref in disorder.findall('.//ExternalReferenceList/ExternalReference'):
                 if ref.find('Source').text == 'OMIM':
                     omim = ref.find('Reference').text
+                    # Ensure OMIM is numeric
+                    try:
+                        int(omim)
+                    except ValueError:
+                        logging.error("Malformed OMIM %s" % omim)
+
                     try:
                         lookup[orphanum].geno.append(omim)           
                     except KeyError:
@@ -69,6 +97,7 @@ class Orphanet:
                         break
             if restart:
                 continue
+        logging.warning("%d Disorders were unmatched to a phenotypic omim" % counter)
         return counter
 
     def write_file(self, filename):

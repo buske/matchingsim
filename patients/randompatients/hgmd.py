@@ -6,15 +6,14 @@ Parse an hgmd file in vcf format annotated (by Jannovar), returning an easy to u
 """
 
 
-__author__ = 'Tal Friedman (talf301@gmail.com)'
-
-
 import os
 import sys
 import logging
 
 from collections import defaultdict
 
+
+__author__ = 'Tal Friedman (talf301@gmail.com)'
 
 class Entry:
     def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid):
