@@ -9,6 +9,7 @@ import sys
 import logging
 import subprocess
 
+import annotate_dir
 from collections import defaultdict
 from hgmd import HGMD
 
@@ -54,6 +55,16 @@ def script(vcf_ezr_paths, A, R, D, RD, V, N=None):
         Acounter = 0
         Ncounter = 0
         contents = os.listdir(vcf_ezr_path)
+        ezr_files = filter(lambda f: f.endswith('.ezr'), contents)
+
+        # If we're missing some annotation files, just run annotater
+        if any(not any(s == f[:-4] + '.txt' for s in contents) for f in ezr_files):
+            if R:
+                annotate_dir.main([vcf_ezr_path, '-R'])
+            else:
+                annotate_dir.main([vcf_ezr_path])
+
+        contents = os.listdir(vcf_ezr_path)
         txt_files = filter(lambda f: f.endswith('.txt') and any(s == f[:-4] + '.ezr' for s in contents),contents)
         
         if D:
@@ -92,13 +103,16 @@ def script(vcf_ezr_paths, A, R, D, RD, V, N=None):
 
         logging.info('Total Patients: ' + str(len(txt_files)))
         logging.info('Total Patients exomizer ranked inserted variant #1: ' + str(counter))
-        logging.info('Accuracy of top hits: ' + str(float(counter)/len(txt_files)) + '\n')
+        if txt_files:
+            logging.info('Accuracy of top hits: ' + str(float(counter)/len(txt_files)) + '\n')
         if N:
             logging.info('Total patients exomizer ranked inserted variant top ' + str(N) + ': ' + str(Ncounter))
-            logging.info('Accuracy of top ' + str(N) + ' hits: ' + str(float(Ncounter)/len(txt_files))+'\n')
+            if txt_files:
+                logging.info('Accuracy of top ' + str(N) + ' hits: ' + str(float(Ncounter)/len(txt_files))+'\n')
         if A:
             logging.info('Total patients exomizer ranked inserted variant at all: ' + str(Acounter))
-            logging.info('Accuracy of entire file: ' + str(float(Acounter)/len(txt_files))+'\n')
+            if txt_files:
+                logging.info('Accuracy of entire file: ' + str(float(Acounter)/len(txt_files))+'\n')
         if D: 
             dis = Dcounter.items()
             if V:
@@ -131,7 +145,8 @@ def script(vcf_ezr_paths, A, R, D, RD, V, N=None):
             logging.info(str(lowcounter) + ' patients have a disease with accuracy < 30% (from diseases with > 2 patients)')
             logging.info(str(highcounter) + ' patients have a disease with accuracy > 60% (from diseases with > 2 patients)')
             logging.info(str(zerocounter) + ' patients a have a disease with accuracy 0% (from diseases with > 2 patients)')
-            logging.info(str(float(lowcounter + highcounter) / totalcounter) + 'of patients have a disease in one of these ranges of diseases with > 2 patients')
+            if totalcounter:
+                logging.info(str(float(lowcounter + highcounter) / totalcounter) + 'of patients have a disease in one of these ranges of diseases with > 2 patients')
         
         if RD:
             logging.info('Total patients with a single inserted mutation: ' + str(singlecounter))
