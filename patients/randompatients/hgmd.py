@@ -24,6 +24,7 @@ class Entry:
         self.effect = effect
         self.omimid = omimid
         self.pmid = pmid
+
         # Casts will raise an error if things that should be ints aren't ints
         int(loc)
         int(omimid)
@@ -47,7 +48,10 @@ class HGMD:
         return iter(self.entries)
    
     def iter_lines(self, filename):
-         with open(filename) as hgmd:
+        """Iterate through the lines in given hgmd file, with each
+        line yielding a corresponding Entry object.
+        """
+        with open(filename) as hgmd:
             for line in hgmd:
                 if line == '\n': continue
                 if line[0] == '#': continue
@@ -70,6 +74,14 @@ class HGMD:
         return self.entries.__str__()
     
     def get_entries_effects(self, effects):
+        """Get all hgmd variants with a certain effect
+        
+        Args:
+            effects: A list of strings representing the desired effects
+
+        Returns:
+            A list a of hgmd variants with the given effect
+        """
         returned = []
         for e in self.entries:
             if e.effect in effects:

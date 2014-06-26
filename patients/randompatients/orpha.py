@@ -27,11 +27,21 @@ class Orphanet:
     def __init__(self, lookup_filename, inher_filename, geno_pheno_filename):
         self.lookup = self.parse_lookup(lookup_filename)
         self.inheritance = self.parse_inheritance(inher_filename, self.lookup)
-        #counter for when we write stats
+        # Counter for when we write stats
         self.counter = self.parse_geno_pheno(geno_pheno_filename,self.lookup)
     
     @classmethod
     def parse_lookup(cls, filename):
+        """
+        Parse the external reference file for orphanet
+
+        Args:
+            filename: string path of file
+
+        Return:
+            Orphanet # -> Disease dict, with each entry having nonempty
+            pheno and empty inheritance and geno
+        """
         tree = ET.parse(filename)
         root = tree.getroot()
         lookup = defaultdict(Disease) # orphanet -> omim
@@ -51,29 +61,46 @@ class Orphanet:
 
     @classmethod
     def parse_inheritance(cls, filename, lookup):
+        """
+        Parse the inheritance reference file for orphanet
+
+        Args:
+            filename: string path of file
+            lookup: Orphanet # -> Disease dict, expect each pheno entry
+            to be nonempty
+        """
         tree = ET.parse(filename)
         root = tree.getroot()
-        inheritance = defaultdict(list) # omim -> inheritance pattern list
         for disorder in root.findall('.//Disorder'):
             orphanum = disorder.find('OrphaNumber').text
-            #ensure that this disorder has an omim number
-            try:
-                ids = lookup[orphanum].pheno
-            except KeyError:
-                continue
-            for inher in  disorder.findall('./TypeOfInheritanceList/TypeOfInheritance'):
-                pattern = inher.find('Name').text
-                assert pattern in ['X-linked dominant', 'Mitochondrial inheritance', \
-                        'Unknown', 'Autosomal recessive', 'Multigenic/multifactorial', \
-                        'X-linked recessive', 'Sporadic', 'Autosomal dominant', \
-                        'No data available'], "Unrecognized inheritance pattern %s" % pattern
-                lookup[orphanum].inheritance.append(pattern)
-                for id in ids:
-                    inheritance[id].append(pattern)
-        return inheritance    
-        
+
+            # Ensure that this disorder has an omim number
+            if orphanum in lookup:
+                for inher in  disorder.findall('./TypeOfInheritanceList/TypeOfInheritance'):
+                    pattern = inher.find('Name').text
+                    assert pattern in ['X-linked dominant', 'Mitochondrial inheritance', \
+                            'Unknown', 'Autosomal recessive', 'Multigenic/multifactorial', \
+                            'X-linked recessive', 'Sporadic', 'Autosomal dominant', \
+                            'No data available'], "Unrecognized inheritance pattern %s" % pattern
+                    lookup[orphanum].inheritance.append(pattern)
+            else:
+                logging.warning("Orphanet disease %s did not have a genotypic OMIM" % orphanum)
+                            
     @classmethod
     def parse_geno_pheno(cls, filename, lookup):
+        """
+        Parse the genotypic omim reference file for orphanet.
+
+        Args: 
+            filename: string path of file
+            lookup: Orphanet # -> Disease dict, we expect each entry
+            will have non-empty pheno and inheritance entries and empty
+            geno entry
+
+        Return:
+            A count of the number of orphanet diseases found in this file without a 
+            genotypic mapping.
+        """
         tree = ET.parse(filename)
         root = tree.getroot()
         counter = 0
@@ -106,38 +133,38 @@ class Orphanet:
             for k in self.lookup.keys():
                 out.write(str(self.lookup[k]) + '\n')
 
-    def write_stats(self, filename):
+    def write_stats(self):
         """Logs some stats about this Orphanet object"""
-        with open(filename, 'w') as out:
-            n_ideal = 0
-            n_miss_inher = 0
-            n_miss_pheno = self.counter
-            n_miss_geno = 0
-            n_one_pheno = 0
-            n_one_geno = 0
-            n_many_geno = 0
-            n_many_pheno = 0
-            for o in self.lookup.itervalues():
-                if len(o.pheno) == 1 and len(o.inheritance) == 1 and len(o.geno) == 1: n_ideal += 1
-                if len(o.inheritance) == 0: n_miss_inher += 1
-                if len(o.geno) == 0: n_miss_geno += 1
-                if len(o.pheno) == 1: n_one_pheno += 1
-                if len(o.geno) == 1: n_one_geno += 1
-                if len(o.pheno) > 1: n_many_pheno += 1
-                if len(o.geno) > 1: n_many_geno += 1
-            
-            out.write("PHENO OMIM:" + '\n')
-            out.write(str(n_miss_pheno) + " entries missing OMIM Pheno entry\n")
-            out.write(str(n_one_pheno) + " entries with one OMIM Pheno entry\n")
-            out.write(str(n_many_pheno) + " entries with many OMIM pheno entries\n")
-            out.write("INERITANCE:" + '\n')
-            out.write(str(n_miss_inher) + " entries missing inheritance pattern\n")
-            out.write("GENO OMIM:" + '\n')
-            out.write(str(n_miss_geno) + " entries missing OMIM Geno entry\n")
-            out.write(str(n_one_geno) + " entries with one OMIM Geno entry\n")
-            out.write(str(n_many_geno) + " entries with many OMIM Geno entries\n")
-            out.write(str(n_ideal) + " ideal entries (1 of each)")
-    
+        n_ideal = 0
+        n_miss_inher = 0
+        n_miss_pheno = self.counter
+        n_miss_geno = 0
+        n_one_pheno = 0
+        n_one_geno = 0
+        n_many_geno = 0
+        n_many_pheno = 0
+        for o in self.lookup.itervalues():
+            if len(o.pheno) == 1 and len(o.inheritance) == 1 and len(o.geno) == 1:
+                n_ideal += 1
+            if len(o.inheritance) == 0: n_miss_inher += 1
+            if len(o.geno) == 0: n_miss_geno += 1
+            if len(o.pheno) == 1: n_one_pheno += 1
+            if len(o.geno) == 1: n_one_geno += 1
+            if len(o.pheno) > 1: n_many_pheno += 1
+            if len(o.geno) > 1: n_many_geno += 1
+        
+        logging.info("PHENO OMIM:" + '\n')
+        logging.info(str(n_miss_pheno) + " entries missing OMIM Pheno entry\n")
+        logging.info(str(n_one_pheno) + " entries with one OMIM Pheno entry\n")
+        logging.info(str(n_many_pheno) + " entries with many OMIM pheno entries\n")
+        logging.info("INERITANCE:" + '\n')
+        logging.info(str(n_miss_inher) + " entries missing inheritance pattern\n")
+        logging.info("GENO OMIM:" + '\n')
+        logging.info(str(n_miss_geno) + " entries missing OMIM Geno entry\n")
+        logging.info(str(n_one_geno) + " entries with one OMIM Geno entry\n")
+        logging.info(str(n_many_geno) + " entries with many OMIM Geno entries\n")
+        logging.info(str(n_ideal) + " ideal entries (1 of each)")
+
     @classmethod
     def has_pattern(cls, patterns, dis):
         """Return if disease follows any of the given inheritance patterns"""
@@ -192,4 +219,4 @@ class Orphanet:
 if __name__ == '__main__':
     orph = Orphanet('/dupa-filer/talf/matchingsim/patients/orphanet_lookup.xml', '/dupa-filer/talf/matchingsim/patients/orphanet_inher.xml', '/dupa-filer/talf/matchingsim/patients/orphanet_geno_pheno.xml')
     orph.write_file('orphanet_parsed.txt')
-    orph.write_stats('orphanet_parsed.log')
+    orph.write_stats()
