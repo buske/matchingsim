@@ -30,7 +30,7 @@ def sample_phenotypes(omim, orph_disease):
     """Sample phenotypes randomly from an orphanet disease
 
     Args:
-        omim: a dict of OMIM number:omim.Disease
+        omim: a dict of OMIM number -> omim.Disease
         orph_disease: an orpha.Disease
 
     Each disease should have at least one phenotype entry
@@ -69,8 +69,8 @@ def sample_variants(rev_hgmd, orph_disease):
     """Sample variants randomly from an orphanet disease
 
     Args:
-        rev_hgmd: A dict of OMIM number: list(hgmd.Entry)
-        orph_disease: An orpha.Disease instance to be sampled from
+        rev_hgmd: A dict of OMIM number -> list(hgmd.Entry)
+        orph_disease: An orpha.Disease instance to be sampled off of
 
     Returns:
         A list of (variant, homozygous?) tuples
@@ -112,8 +112,8 @@ def infect_patient(patient, orph_disease, omim_dict, rev_hgmd):
     Args:
         patient: a string containing the path to the patient vcf
         orph_disease: an orpha.Disease instance to infect patient with
-        omim: a dict of OMIM number: omim.Disease
-        rev_hgmd: a dict of OMIM number: list(hgmd.Entry)
+        omim: a dict of OMIM number -> omim.Disease
+        rev_hgmd: a dict of OMIM number -> list(hgmd.Entry)
     """
     # Sample phenotypes and variants
     phenotypes = sample_phenotypes(omim_dict, orph_disease)
@@ -156,7 +156,7 @@ def load_data(data_path):
         data_path: String file path to the directory files are in
 
     Returns
-        (HGMD, list(omim.Disease), Orphanet)
+        (HGMD, OMIM number -> omim.Disease, Orphanet)
     """
     # Load hgmd
     hgmd = HGMD(os.path.join(data_path, 'hgmd_correct.jv.vcf'))
@@ -183,7 +183,7 @@ def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs)
    
     # Set up our corrected lookup
     rev_hgmd = hgmd.get_by_omim()
-    orph_diseases = orph.correct_lookup(orph.lookup, omim_dict, rev_hgmd, inheritance)
+    orph_diseases = orph.filter_lookup(orph.lookup, omim_dict, rev_hgmd, inheritance)
 
     # First, need to check there are at least 2 vcffiles
     contents = os.listdir(vcf_path)

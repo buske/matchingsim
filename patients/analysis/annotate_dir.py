@@ -52,7 +52,7 @@ def script(path, R):
     omim = MIM('/dupa-filer/talf/matchingsim/patients/phenotype_annotation.tab')
     omim = filter(lambda x:x.db == 'OMIM', omim.diseases)
     omim_dict = {dis.id:dis for dis in omim}
-    lookup = orph.correct_lookup(orph.lookup,omim_dict,rev_hgmd)
+    lookup = orph.filter_lookup(orph.lookup,omim_dict,rev_hgmd)
     contents = os.listdir(path)
     vcf_files = filter(lambda f: f.endswith('.vcf'), contents)
     ezr_files = filter(lambda f: f.endswith('.ezr'), contents)

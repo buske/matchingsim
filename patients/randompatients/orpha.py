@@ -101,11 +101,13 @@ class Orphanet:
         return counter
 
     def write_file(self, filename):
+        """Serialize this Orphanet object to a file"""
         with open(filename, 'w') as out:
             for k in self.lookup.keys():
                 out.write(str(self.lookup[k]) + '\n')
 
     def write_stats(self, filename):
+        """Logs some stats about this Orphanet object"""
         with open(filename, 'w') as out:
             n_ideal = 0
             n_miss_inher = 0
@@ -137,37 +139,54 @@ class Orphanet:
             out.write(str(n_ideal) + " ideal entries (1 of each)")
     
     @classmethod
-    def has_pattern(cls, patterns, o):
-        return any(x in patterns for x in o.inheritance)
+    def has_pattern(cls, patterns, dis):
+        """Return if disease follows any of the given inheritance patterns"""
+        return any(x in patterns for x in dis.inheritance)
 
     @classmethod
-    def has_pheno(cls, omim_dict, o):
-        return o.pheno[0] in omim_dict
+    def has_pheno(cls, omim_dict, dis):
+        """Return if disease has HPO terms associated with it""" 
+        return dis.pheno[0] in omim_dict
 
     @classmethod
-    #ensure that all elements of lookup are entirely useable
-    def correct_lookup(cls, lookup, omim_dict, rev_hgmd, Inheritance=None):
-        #get ideal orphanet cases
-        newlook = {k:v for k,v in lookup.iteritems() if len(v.pheno) == 1 and len(v.inheritance) == 1 and len(v.geno) == 1}
-        #get the right disease set based on inheritance
+    def filter_lookup(cls, lookup, omim_dict, rev_hgmd, Inheritance=None):
+        """Return a new lookup table filtered based on inheritance and mapping ability
+
+        Args:
+            lookup: dict of Orphanet Number -> orph.Disease instances
+            omim_dict: OMIM number -> omim.Disease
+            rev_hgmd: OMIM number -> list(hgmd.Entry)
+            Inheritance: list(string) containing accepted inheritance pattern
+        
+        Return:
+            dict of Orphanet Number -> orph.Disease each with exactly one geno,pheno, 
+            and inheritance entry, and the matching inheritance pattern, as well as
+            having at least one corresponding variant in hgmd
+        """
+        # Get ideal orphanet cases
+        newlook = {orph:dis for orph, dis in lookup.iteritems() 
+                if len(dis.pheno) == 1 and len(dis.inheritance) == 1 and len(dis.geno) == 1}
+
+        # Get the right disease set based on inheritance
         if Inheritance:
             patterns = []
             if 'AD' in Inheritance:
                  patterns.append('Autosomal dominant')
             if 'AR' in Inheritance:
                 patterns.append('Autosomal recessive')
-            newlook ={k:v for k,v in newlook.iteritems() if cls.has_pattern(patterns, v)}
+            newlook = {orph:dis for orph, dis in newlook.iteritems() 
+                    if cls.has_pattern(patterns, dis)}
         
-        #ensure all orphanet cases have phenotypic annotations
-        lookup = {k:v for k,v in newlook.iteritems() if cls.has_pheno(omim_dict, v)}
-        #ensure all orphanet cases have at least one associated variant
+        # Ensure all orphanet cases have phenotypic annotations
+        lookup = {orph:dis for orph, dis in newlook.iteritems() 
+                if cls.has_pheno(omim_dict, dis)}
+        
+        # Ensure all orphanet cases have at least one associated variant
         newlook = {}
-        for k, o in lookup.iteritems():
-            try:
-                a = rev_hgmd[o.geno[0]]
-                newlook[k] = o
-            except KeyError:
-                pass
+        for orph, dis in lookup.iteritems():
+            if dis.geno[0] in rev_hgmd:
+                newlook[orph] = dis
+
         return newlook
 
 if __name__ == '__main__':
