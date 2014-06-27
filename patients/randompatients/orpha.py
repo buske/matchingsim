@@ -45,6 +45,7 @@ class Orphanet:
         tree = ET.parse(filename)
         root = tree.getroot()
         lookup = defaultdict(Disease) # orphanet -> omim
+        counter = 0
         for disorder in root.findall('.//Disorder'):
             orphanum = disorder.find('OrphaNumber').text
             for ref in disorder.findall('./ExternalReferenceList/ExternalReference'):
@@ -54,9 +55,11 @@ class Orphanet:
                     try:
                         int(omim)
                         int(orphanum)
+                        lookup[orphanum].pheno.append(omim)
+                        counter += 1
                     except ValueError:
                         logging.error("Malformed OMIM or Orphanum at %s" % orphanum)
-                    lookup[orphanum].pheno.append(omim)
+        logging.info("%d orphanet diseases initially found" % counter)
         return lookup
 
     @classmethod
@@ -71,6 +74,7 @@ class Orphanet:
         """
         tree = ET.parse(filename)
         root = tree.getroot()
+        counter = 0
         for disorder in root.findall('.//Disorder'):
             orphanum = disorder.find('OrphaNumber').text
 
@@ -84,8 +88,9 @@ class Orphanet:
                             'No data available'], "Unrecognized inheritance pattern %s" % pattern
                     lookup[orphanum].inheritance.append(pattern)
             else:
-                logging.warning("Orphanet disease %s did not have a genotypic OMIM" % orphanum)
-                            
+                counter += 1
+        logging.warning("%d unmatched orphanums from inheritance" % counter)
+
     @classmethod
     def parse_geno_pheno(cls, filename, lookup):
         """

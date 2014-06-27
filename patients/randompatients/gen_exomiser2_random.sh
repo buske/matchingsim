@@ -29,7 +29,7 @@ else
 fi
 data=/dupa-filer/talf/matchingsim/patients
 
-delay=80
+delay=60
 
 #location of files given first, number of files to generate is given as second argument
 loc=$1

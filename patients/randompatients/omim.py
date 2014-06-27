@@ -82,6 +82,7 @@ class MIM:
 
     @classmethod
     def iter_diseases(cls, filename, default_freq=None):
+        counter = 0
         for disease, tokens_list in cls.iter_disease_lines(filename):
             db, id = disease
             raw_phenotypes = defaultdict(list)
@@ -102,9 +103,13 @@ class MIM:
                     freq = default_freq
 
                 phenotype_freqs[hp_term] = freq
-                
+            
+            if all(not freq for freq in phenotype_freqs.itervalues()) and db == 'OMIM':
+                counter += 1
+
             disease = Disease(db, id, name, phenotype_freqs)
             yield disease
-
+        
+        logging.warning("%d OMIM diseases had no freq info at all" % counter)
 if __name__ == '__main__':
     omim = MIM('/dupa-filer/talf/matchingsim/patients/phenotype_annotation.tab')
