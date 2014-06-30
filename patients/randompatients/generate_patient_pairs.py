@@ -116,7 +116,7 @@ def infect_pheno(patient, orph_disease, omim_dict):
     # Sample phenotypes
     phenotypes = sample_phenotypes(omim_dict, orph_disease)
 
-    assert patients.endswith('.vcf')
+    assert patient.endswith('.vcf')
 
     # If patient is HG01.vcf, phenotypes in HG01_hpo.txt
     pheno_file = patient[:-4] + '_hpo.txt'
@@ -185,6 +185,25 @@ def load_data(data_path):
 
     return hgmd, omim_dict, orph
 
+def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
+    """Copy in a new vcf pair, sampling at random from vcf_files
+
+    Args:
+        vcf_files: list of vcf files in source directory
+        vcf_path: path to vcf_files
+        out_path: path where new files should be put
+        orphanum: orphanet disease number do sign new file with
+        i: iteration to sign new file with 
+    Returns:
+        A list of the two new patient locations
+    """
+
+    old_pair = random.sample(vcf_files, 2)
+    new_pair = map(lambda x: x[:-4] + '_' + orphanum + + '_' + str(i) + '.vcf', old_pair)
+    for old, new in zip(old_pair, new_pair):
+        shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
+    return new_pair
+
 def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs):
     try:
         hgmd, omim_dict, orph = load_data(data_path)
@@ -196,39 +215,45 @@ def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs)
     rev_hgmd = hgmd.get_by_omim()
     orph_diseases = orph.filter_lookup(orph.lookup, omim_dict, rev_hgmd, inheritance)
 
-    # First, need to check there are at least 2 vcffiles
-    contents = os.listdir(vcf_path)
-    vcf_files = filter(lambda x: x.endswith('.vcf'), contents)
-    assert len(vcf_files) > 2, "Need at least 2 vcf files"
- 
+    # If vcf dir given,  need to check there are at least 2 vcf files
+    if vcf_path:
+        contents = os.listdir(vcf_path)
+        vcf_files = filter(lambda x: x.endswith('.vcf'), contents)
+        assert len(vcf_files) > 2, "Need at least 2 vcf files"
+     
     for i in range(num_pairs):
-        # First, copy pair
-        old_pair = random.sample(vcf_files, 2)
-        new_pair = map(lambda x: x[:-4] + '_' + str(i) + '.vcf', old_pair)
-        for old, new in zip(old_pair, new_pair):
-            shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
-
-        # Next, get a disease
+        # First, get a disease
         # We do a weighted sample based on the number of associated harmful variants
-        disease = orph_diseases[weighted_choice(orph_diseases.keys(), 
-            [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])]
-        
+        orphanum = weighted_choice(orph_diseases.keys(), 
+            [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])
+        disease = orph_diseases[orphanum]
+
+        # Next, if we have a vcf dir copy pair
+        if vcf_path:
+            new_pair = copy_vcf(vcf_files, vcf_path, out_path, orphanum, i)
+        else:
+            # Otherwise, name patients based on just disease and iteration (with fake vcf)
+            new_pair = ['First_' + orphanum + '_' + str(i) + '.vcf',
+                    'Second_' + orphanum + '_' + str(i) + '.vcf']
+
         # Finally, infect both patients with disease
         for patient in new_pair:
-            infect_patient(os.path.join(out_path, patient), disease, omim_dict, rev_hgmd)
+            if vcf_path:
+                infect_geno(os.path.join(out_path, patient), disease, rev_hgmd)
+            infect_pheno(os.path.join(out_path, patient), disease, omim_dict)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
 
     parser.add_argument('data_path', metavar='DATA', 
             help='Directory from which to grab data files')
-    parser.add_argument('vcf_path', metavar='IN', 
+    parser.add_argument('--vcf_path', 
             help='Directory from which to take .vcf and .vcf.gz')
     parser.add_argument('out_path', metavar='OUT', 
             help='Directory where to put the generated patient files')
     parser.add_argument('-N', type=int, dest='num_pairs',
             help='Number of pairs of patients to generate', required=True)
-    parser.add_argument('-I', '--inheritance',nargs='1',
+    parser.add_argument('-I', '--inheritance',nargs='+',
             choices=['AD','AR'], 
             help='Which inheritance pattern sampled diseases should have')
     parser.add_argument('--logging', default='WARNING',
