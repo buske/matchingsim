@@ -104,32 +104,43 @@ def generate_vcf_line(var, hom=False):
     return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
         var.alt, '255', 'PASS', '.', 'GT', gt])
 
-def infect_patient(patient, orph_disease, omim_dict, rev_hgmd):
-    """Infect patients by inserting harmful variants and
-    producing a file with list of phenotypes associated 
-    with disease
-    
+def infect_pheno(patient, orph_disease, omim_dict):
+    """Do phenotypic infection by producing a file with a
+    list of phenotypes associated with disease
+
     Args:
-        patient: a string containing the path to the patient vcf
-        orph_disease: an orpha.Disease instance to infect patient with
-        omim: a dict of OMIM number -> omim.Disease
-        rev_hgmd: a dict of OMIM number -> list(hgmd.Entry)
+        patient: a string path to the patient vcf
+        orph_disease: an orpha.Disease instant to infect patient
+        omim_dict: a dict of OMIM number -> omim.Disease
     """
-    # Sample phenotypes and variants
+    # Sample phenotypes
     phenotypes = sample_phenotypes(omim_dict, orph_disease)
-    variants = sample_variants(rev_hgmd, orph_disease)
 
-    assert patient.endswith('.vcf')
+    assert patients.endswith('.vcf')
 
-    # If patient is HG01.vcf, phenotypes will be stored in HG01_hpo.txt 
+    # If patient is HG01.vcf, phenotypes in HG01_hpo.txt
     pheno_file = patient[:-4] + '_hpo.txt'
     with open(pheno_file, 'w') as hpo:
         hpo.write(','.join(phenotypes))
 
+def infect_geno(patient, orph_disease, rev_hgmd):
+    """Do genotypic infection by inserting harmful variants 
+    associated with disease.
+
+    Args:
+        patient: a string path to the patient vcf
+        orph_disease: an orpha.Disease instance to infect patient with
+        rev_hgmd: a dict of OMIM number -> list(hgmd.Entry)
+    """
+    # Sample variants
+    variants = sample_variants(rev_hgmd, orph_disease)
+
+    assert patient.endswith('.vcf')
+
     with open(patient, 'a') as vcf:
         for variant, hom in variants:
             vcf.write(generate_vcf_line(variant, hom=hom))
-    
+
 def weighted_choice(choices, weights):
     """Return a random choice, given corresponding weights
     
@@ -217,7 +228,7 @@ def parse_args(args):
             help='Directory where to put the generated patient files')
     parser.add_argument('-N', type=int, dest='num_pairs',
             help='Number of pairs of patients to generate', required=True)
-    parser.add_argument('-I', '--inheritance',nargs='+',
+    parser.add_argument('-I', '--inheritance',nargs='1',
             choices=['AD','AR'], 
             help='Which inheritance pattern sampled diseases should have')
     parser.add_argument('--logging', default='WARNING',
