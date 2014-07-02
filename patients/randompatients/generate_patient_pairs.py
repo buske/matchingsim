@@ -26,12 +26,13 @@ from omim import MIM
 
 __author__ = 'Tal Friedman (talf301@gmail.com)'
 
-def sample_phenotypes(omim, orph_disease):
+def sample_phenotypes(omim_dict, orph_disease, default_freq=1.0):
     """Sample phenotypes randomly from an orphanet disease
 
     Args:
         omim: a dict of OMIM number -> omim.Disease
         orph_disease: an orpha.Disease
+        default_freq: default frequency to use if not specified
 
     Each disease should have at least one phenotype entry
 
@@ -45,7 +46,7 @@ def sample_phenotypes(omim, orph_disease):
 
     # Grab the Disease entry for this OMIM
     try:
-        omim_dis = omim[omim_id]
+        omim_dis = omim_dict[omim_id]
     except KeyError:
         logging.warning('Could not find OMIM entry for %s' % omim_id)
 
@@ -53,7 +54,7 @@ def sample_phenotypes(omim, orph_disease):
     phenotype_freqs = omim_dis.phenotype_freqs
     assert phenotype_freqs, "Missing phenotypes for: %s" % omim_id
     for pheno, freq in phenotype_freqs.iteritems():
-        if not freq:
+        if not freq and random.random() < default_freq:
             phenotypes.append(pheno)
         else:
             if random.random() < freq:
@@ -63,7 +64,7 @@ def sample_phenotypes(omim, orph_disease):
     else:
         logging.warning("Random phenotype sampling for %s resulted in"
                 " empty set" % omim_id)
-        return sample_phenotypes(omim_dict, orph_disease)
+        return sample_phenotypes(omim_dict, orph_disease, default_freq)
 
 def sample_variants(rev_hgmd, orph_disease):
     """Sample variants randomly from an orphanet disease
@@ -104,7 +105,7 @@ def generate_vcf_line(var, hom=False):
     return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
         var.alt, '255', 'PASS', '.', 'GT', gt])
 
-def infect_pheno(patient, orph_disease, omim_dict):
+def infect_pheno(patient, orph_disease, omim_dict, default_freq):
     """Do phenotypic infection by producing a file with a
     list of phenotypes associated with disease
 
@@ -112,9 +113,10 @@ def infect_pheno(patient, orph_disease, omim_dict):
         patient: a string path to the patient vcf
         orph_disease: an orpha.Disease instant to infect patient
         omim_dict: a dict of OMIM number -> omim.Disease
+        default_freq: default frequency to use if info not found
     """
     # Sample phenotypes
-    phenotypes = sample_phenotypes(omim_dict, orph_disease)
+    phenotypes = sample_phenotypes(omim_dict, orph_disease, default_freq)
 
     assert patient.endswith('.vcf')
 
@@ -199,12 +201,12 @@ def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
     """
 
     old_pair = random.sample(vcf_files, 2)
-    new_pair = map(lambda x: x[:-4] + '_' + orphanum + + '_' + str(i) + '.vcf', old_pair)
+    new_pair = map(lambda x: x[:-4] + '_' + orphanum + '_' + str(i) + '.vcf', old_pair)
     for old, new in zip(old_pair, new_pair):
         shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
     return new_pair
 
-def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs):
+def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq, inheritance=None, **kwargs):
     try:
         hgmd, omim_dict, orph = load_data(data_path)
     except IOError, e:
@@ -223,10 +225,15 @@ def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs)
      
     for i in range(num_pairs):
         # First, get a disease
-        # We do a weighted sample based on the number of associated harmful variants
-        orphanum = weighted_choice(orph_diseases.keys(), 
-            [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])
-        disease = orph_diseases[orphanum]
+        if by_variant:
+            # We do a weighted sample based on the number of associated harmful variants
+            orphanum = weighted_choice(orph_diseases.keys(), 
+                [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])
+            disease = orph_diseases[orphanum]
+        else:
+            # A uniform sample over all diseases
+            orphanum = random.choice(orph_diseases.keys())
+            disease = orph_diseases[orphanum]
 
         # Next, if we have a vcf dir copy pair
         if vcf_path:
@@ -240,7 +247,7 @@ def script(data_path, vcf_path, out_path, num_pairs, inheritance=None, **kwargs)
         for patient in new_pair:
             if vcf_path:
                 infect_geno(os.path.join(out_path, patient), disease, rev_hgmd)
-            infect_pheno(os.path.join(out_path, patient), disease, omim_dict)
+            infect_pheno(os.path.join(out_path, patient), disease, omim_dict, default_freq)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
@@ -256,6 +263,11 @@ def parse_args(args):
     parser.add_argument('-I', '--inheritance',nargs='+',
             choices=['AD','AR'], 
             help='Which inheritance pattern sampled diseases should have')
+    parser.add_argument('-D', '--default_freq', type=float,
+            help='Default frequency for phenotype if info not found (default'
+            'is 1.0)', default=1.0)
+    parser.add_argument('-V', dest='by_variant', action='store_true',
+            help='Sample diseases weighted by variant, default is uniform')
     parser.add_argument('--logging', default='WARNING',
             help='Logging level (e.g. DEBUG, ERROR)')
     return parser.parse_args(args)

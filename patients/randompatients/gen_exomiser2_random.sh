@@ -62,7 +62,7 @@ EOF
 chmod +x "$out/rerun.sh"
 
 mkdir -pv $out/scripts
-for file in $out/*.vcf.gz $out/*.vcf; do
+for file in $out/*.vcf; do
     #create a bash script
     #get only ending to name script
     f=`echo $file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1`

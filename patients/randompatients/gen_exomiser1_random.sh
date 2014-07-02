@@ -16,7 +16,7 @@ fi
 set -eu
 set -o pipefail
 #Use date and time as a signature for the generated data
-sig=`date +%F-%H-%M-%S`
+sig=EX1_`date +%F-%H-%M-%S`
 #sge stuff
 memory=10G
 processors=1
@@ -62,7 +62,7 @@ EOF
 chmod +x "$out/rerun.sh"
 
 mkdir -pv $out/scripts
-for file in $out/*.vcf.gz $out/*.vcf; do
+for file in $out/*.vcf; do
     #create a bash script
     #get only ending to name script
     f=`echo $file | rev | cut -d '/' -f1 | rev | cut -d '.' -f1`
