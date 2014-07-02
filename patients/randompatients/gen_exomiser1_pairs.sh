@@ -21,6 +21,7 @@ sig=EX1_PAIRS_`date +%F-%H-%M-%S`
 memory=10G
 processors=1
 logdir=~/sge_logs/gen_exomise/$sig/
+mkdir -pv $logdir
 if [ $# -eq 3 ] && [ $3 == '-R' ]; then
     out=/dupa-filer/talf/matchingsim/patients/"$sig"R
 else
@@ -28,7 +29,7 @@ else
 fi
 data=/dupa-filer/talf/matchingsim/patients
 
-delay=30
+delay=15
 
 #location of files given first, number of files to generate is given as second argument
 loc=$1
