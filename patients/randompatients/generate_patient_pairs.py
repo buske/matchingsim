@@ -103,7 +103,7 @@ def generate_vcf_line(var, hom=False):
     """Return newline-terminated VCF line for given variant"""
     gt = '1/1' if hom else '0/1'
     return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
-        var.alt, '255', 'PASS', '.', 'GT', gt])
+        var.alt, '255', 'PASS', var.info_line, 'GT', gt])
 
 def infect_pheno(patient, orph_disease, omim_dict, default_freq):
     """Do phenotypic infection by producing a file with a
@@ -206,13 +206,24 @@ def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
         shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
     return new_pair
 
-def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq, inheritance=None, **kwargs):
+def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq, 
+        drop_intronic, inheritance=None, **kwargs):
     try:
         hgmd, omim_dict, orph = load_data(data_path)
     except IOError, e:
         logging.error(e)
         sys.exit(1)
-   
+  
+    # If we are dropping intronic variants from hgmd, do it now
+    if drop_intronic:
+        prev_len = len(hgmd.entries)
+        # We make a list of accepted effects
+        accepted = ['FS_DELETION', 'FS_SUBSTITUTION', 'NON_FS_DELETION', 
+                'NON_FS_SUBSTITUTION', 'NONSYNONYMOUS', 'SPLICING', 
+                'STOPGAIN', 'STOPLOSS']
+        hgmd.entries = filter(lambda x: x.effect in accepted, hgmd.entries)
+        logging.warning("%d HGMD variants dropped as intronic\n" % (len(hgmd.entries) - prev_len))
+
     # Set up our corrected lookup
     rev_hgmd = hgmd.get_by_omim()
     orph_diseases = orph.filter_lookup(orph.lookup, omim_dict, rev_hgmd, inheritance)
@@ -266,6 +277,8 @@ def parse_args(args):
     parser.add_argument('-D', '--default_freq', type=float,
             help='Default frequency for phenotype if info not found (default'
             'is 1.0)', default=1.0)
+    parser.add_argument('--drop_intronic', action='store_true',
+            help='Drop intronic variants from HGMD')
     parser.add_argument('-V', dest='by_variant', action='store_true',
             help='Sample diseases weighted by variant, default is uniform')
     parser.add_argument('--logging', default='WARNING',
