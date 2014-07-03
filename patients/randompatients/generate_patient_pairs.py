@@ -50,7 +50,7 @@ def sample_phenotypes(omim_dict, orph_disease, default_freq=1.0):
     except KeyError:
         logging.warning('Could not find OMIM entry for %s' % omim_id)
 
-    # If frequency available, we will sample, otherwise just include
+    # If frequency available, we will sample, otherwise use default freq 
     phenotype_freqs = omim_dis.phenotype_freqs
     assert phenotype_freqs, "Missing phenotypes for: %s" % omim_id
     for pheno, freq in phenotype_freqs.iteritems():
