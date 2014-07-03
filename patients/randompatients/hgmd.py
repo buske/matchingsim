@@ -16,7 +16,7 @@ from collections import defaultdict
 __author__ = 'Tal Friedman (talf301@gmail.com)'
 
 class Entry:
-    def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid):
+    def __init__(self, chrom, loc, ref, alt, effect, pmid, omimid, info_line):
         self.chrom = chrom
         self.loc = loc
         self.ref = ref
@@ -24,6 +24,7 @@ class Entry:
         self.effect = effect
         self.omimid = omimid
         self.pmid = pmid
+        self.info_line = info_line
 
         # Casts will raise an error if things that should be ints aren't ints
         int(loc)
@@ -60,19 +61,20 @@ class HGMD:
                 assert len(info) == 10, "Malformed line %s" % line
                 
                 try:
-                    effect = info[7].split(';')[0].split('=')[1]
-                    omimid = info[7].split(';')[2].split(':')[1]
-                    pmid = info[7].split(';')[3].split(':')[1]      
+                    info_line = info[7]
+                    effect = info_line.split(';')[0].split('=')[1]
+                    omimid = info_line.split(';')[2].split(':')[1]
+                    pmid = info_line.split(';')[3].split(':')[1]      
                 except IndexError:
                     logging.error("Malformed line %s" % line)
                 try:
-                    yield Entry(info[0],info[1],info[3],info[4],effect,pmid,omimid)
+                    yield Entry(info[0],info[1],info[3],info[4],effect,pmid,omimid,info[7].strip())
                 except ValueError:
                     logging.error("Malformed line %s" % line)
  
     def __str__(self):
-        return self.entries.__str__()
-    
+        return self.line
+
     def get_entries_effects(self, effects):
         """Get all hgmd variants with a certain effect
         
