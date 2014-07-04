@@ -31,7 +31,7 @@ class Entry:
         int(omimid)
     
     def __str__(self):
-        return [self.chrom, self.loc, self.ref, self.alt, self.effect, self.omimid, self.pmid].__str__()
+        return [self.chrom, self.loc, self.ref, self.alt, self.effect, self.omimid, self.pmid, self.info_line].__str__()
 
     def __repr__(self):
         return self.__str__()

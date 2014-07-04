@@ -17,6 +17,8 @@ import shutil
 import logging
 import random
 
+import hpo
+
 from collections import defaultdict
 from argparse import ArgumentParser
 from orpha import Orphanet
@@ -26,12 +28,38 @@ from omim import MIM
 
 __author__ = 'Tal Friedman (talf301@gmail.com)'
 
-def sample_phenotypes(omim_dict, orph_disease, default_freq=1.0):
+def add_imprecision(hp, phenotypes):
+    """Randomly add some imprecision by moving terms up the
+    tree at random to simulate different language usage
+
+    Args:
+        hp: an hpo.HPO instance
+        phenotypes: list of phenotypes to add imprecision to
+
+    Returns:
+        A list of the phenotypes with imprecision added. 
+    Note that the list may be shorter if intersection happens
+    """
+    # We're going to use a set, since scaling phenotypes up could
+    # potentially make them intersect
+    new_pheno = set()
+    
+    for pheno in phenotypes:
+        ancestors = hpo.get_ancestors(hp[pheno])
+        # Now randomly add an ancestor
+        set.add(str(random.choice(ancestors)))
+
+    # Return phenotypes as a list
+    return list(new_pheno)
+
+def sample_phenotypes(omim_dict, orph_disease, hp, imprecision, default_freq=1.0):
     """Sample phenotypes randomly from an orphanet disease
 
     Args:
         omim: a dict of OMIM number -> omim.Disease
         orph_disease: an orpha.Disease
+        hp: an hpo.HPO instance 
+        imprecision: whether or not to add imprecision
         default_freq: default frequency to use if not specified
 
     Each disease should have at least one phenotype entry
@@ -60,6 +88,9 @@ def sample_phenotypes(omim_dict, orph_disease, default_freq=1.0):
             if random.random() < freq:
                 phenotypes.append(pheno)
     if phenotypes:
+        # Add imprecision if necessary
+        if imprecision:
+           phenotypes = add_imprecision(hp, phenotypes) 
         return phenotypes
     else:
         logging.warning("Random phenotype sampling for %s resulted in"
@@ -105,7 +136,7 @@ def generate_vcf_line(var, hom=False):
     return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
         var.alt, '255', 'PASS', var.info_line, 'GT', gt])
 
-def infect_pheno(patient, orph_disease, omim_dict, default_freq):
+def infect_pheno(patient, orph_disease, omim_dict, hp, imprecision, default_freq):
     """Do phenotypic infection by producing a file with a
     list of phenotypes associated with disease
 
@@ -113,10 +144,13 @@ def infect_pheno(patient, orph_disease, omim_dict, default_freq):
         patient: a string path to the patient vcf
         orph_disease: an orpha.Disease instant to infect patient
         omim_dict: a dict of OMIM number -> omim.Disease
+        hp: an hpo.HPO instance
+        imprecision: whether or not to add imprecision to pheno sampling
         default_freq: default frequency to use if info not found
     """
     # Sample phenotypes
-    phenotypes = sample_phenotypes(omim_dict, orph_disease, default_freq)
+    phenotypes = sample_phenotypes(omim_dict, orph_disease, hp,
+            imprecision, default_freq)
 
     assert patient.endswith('.vcf')
 
@@ -169,7 +203,7 @@ def load_data(data_path):
         data_path: String file path to the directory files are in
 
     Returns
-        (HGMD, OMIM number -> omim.Disease, Orphanet)
+        (HGMD, OMIM number -> omim.Disease, Orphanet, HPO)
     """
     # Load hgmd
     hgmd = HGMD(os.path.join(data_path, 'hgmd_correct.jv.vcf'))
@@ -185,7 +219,12 @@ def load_data(data_path):
     orphanet_geno_pheno = os.path.join(data_path, 'orphanet_geno_pheno.xml')
     orph = Orphanet(orphanet_lookup, orphanet_inher, orphanet_geno_pheno)
 
-    return hgmd, omim_dict, orph
+    # Load hpo
+    hp = hpo.HPO(os.path.join(data_path, 'hp.obo'))
+    # Filter to phenotypic abnormailities
+    hp.filter_to_descendants('HP:0000118')
+
+    return hgmd, omim_dict, orph, hp
 
 def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
     """Copy in a new vcf pair, sampling at random from vcf_files
@@ -207,22 +246,34 @@ def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
     return new_pair
 
 def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq, 
-        drop_intronic, inheritance=None, **kwargs):
+        drop_intronic, imprecision, inheritance=None, **kwargs):
     try:
-        hgmd, omim_dict, orph = load_data(data_path)
+        hgmd, omim_dict, orph, hp = load_data(data_path)
     except IOError, e:
         logging.error(e)
         sys.exit(1)
   
     # If we are dropping intronic variants from hgmd, do it now
     if drop_intronic:
-        prev_len = len(hgmd.entries)
+        dropped_counter = 0
         # We make a list of accepted effects
         accepted = ['FS_DELETION', 'FS_SUBSTITUTION', 'NON_FS_DELETION', 
                 'NON_FS_SUBSTITUTION', 'NONSYNONYMOUS', 'SPLICING', 
                 'STOPGAIN', 'STOPLOSS']
-        hgmd.entries = filter(lambda x: x.effect in accepted, hgmd.entries)
-        logging.warning("%d HGMD variants dropped as intronic\n" % (len(hgmd.entries) - prev_len))
+
+        # Also make a list of rejected effects, so we know when something is totally wrong
+        rejected = ['ERROR', 'INTERGENIC', 'INTRONIC', 'ncRNA_EXONIC', 
+                'ncRNA_SPLICING', 'SYNONYMOUS', 'UTR3', 'UTR5']
+
+        new_entries = []
+        for entry in hgmd.entries:
+            if entry.effect in accepted:
+                new_entries.append(entry)
+            elif entry.effect in rejected:
+                dropped_counter += 1
+            else:
+                logging.error("Entry did not have matched effect %s\n" % entry)
+        logging.warning("%d HGMD variants dropped as intronic\n" % dropped_counter)
 
     # Set up our corrected lookup
     rev_hgmd = hgmd.get_by_omim()
@@ -258,7 +309,8 @@ def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq,
         for patient in new_pair:
             if vcf_path:
                 infect_geno(os.path.join(out_path, patient), disease, rev_hgmd)
-            infect_pheno(os.path.join(out_path, patient), disease, omim_dict, default_freq)
+            infect_pheno(os.path.join(out_path, patient), disease, omim_dict, 
+                    hp, imprecision,  default_freq)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
@@ -279,6 +331,9 @@ def parse_args(args):
             'is 1.0)', default=1.0)
     parser.add_argument('--drop_intronic', action='store_true',
             help='Drop intronic variants from HGMD')
+    parser.add_argument('--imprecision', action='store_true',
+            help='Add imprecision of hpo term selection (randomly send'
+            'terms to ancestors')
     parser.add_argument('-V', dest='by_variant', action='store_true',
             help='Sample diseases weighted by variant, default is uniform')
     parser.add_argument('--logging', default='WARNING',
