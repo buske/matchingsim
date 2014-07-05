@@ -45,9 +45,9 @@ def add_imprecision(hp, phenotypes):
     new_pheno = set()
     
     for pheno in phenotypes:
-        ancestors = hpo.get_ancestors(hp[pheno])
+        ancestors = list(hpo.get_ancestors(hp[pheno]))
         # Now randomly add an ancestor
-        set.add(str(random.choice(ancestors)))
+        new_pheno.add(str(random.choice(ancestors)))
 
     # Return phenotypes as a list
     return list(new_pheno)
