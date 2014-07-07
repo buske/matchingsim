@@ -45,9 +45,15 @@ def add_imprecision(hp, phenotypes):
     new_pheno = set()
     
     for pheno in phenotypes:
-        ancestors = list(hpo.get_ancestors(hp[pheno]))
+        try:
+            # Key may not be found since there are things like
+            # Inheritance patterns in phenotypic annotations
+            ancestors = list(hpo.get_ancestors(hp[pheno]))
+        except KeyError:
+            continue
+
         # Now randomly add an ancestor
-        new_pheno.add(str(random.choice(ancestors)))
+        new_pheno.add(str(random.choice(ancestors).id))
 
     # Return phenotypes as a list
     return list(new_pheno)
@@ -226,8 +232,8 @@ def load_data(data_path):
 
     return hgmd, omim_dict, orph, hp
 
-def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
-    """Copy in a new vcf pair, sampling at random from vcf_files
+def copy_vcf(vcf_files, vcf_path, out_path, orphanum, i, num_vcf):
+    """Copy in a new vcf group, sampling at random from vcf_files
 
     Args:
         vcf_files: list of vcf files in source directory
@@ -235,18 +241,27 @@ def copy_vcf(vcf_files, vcf_path, out_path,  orphanum, i):
         out_path: path where new files should be put
         orphanum: orphanet disease number do sign new file with
         i: iteration to sign new file with 
+        num_vcf: number of vcf's to sample and copy
     Returns:
-        A list of the two new patient locations
+        A list of the new patient locations
     """
 
-    old_pair = random.sample(vcf_files, 2)
+    old_pair = random.sample(vcf_files, num_vcf)
     new_pair = map(lambda x: x[:-4] + '_' + orphanum + '_' + str(i) + '.vcf', old_pair)
     for old, new in zip(old_pair, new_pair):
         shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
     return new_pair
 
-def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq, 
+def script(data_path, vcf_path, out_path, num_pairs, num_patients, by_variant, default_freq, 
         drop_intronic, imprecision, inheritance=None, **kwargs):
+    # First, make sure we're given either a number of patients or number of pairs
+    if not num_pairs and not num_patients:
+        logging.error("Either -N or -P is required\n")
+        sys.exit(1)
+    elif num_pairs and num_patients:
+        logging.error("Use exactly one of -N or -P")
+        sys.exit(1)
+
     try:
         hgmd, omim_dict, orph, hp = load_data(data_path)
     except IOError, e:
@@ -279,38 +294,67 @@ def script(data_path, vcf_path, out_path, num_pairs, by_variant, default_freq,
     rev_hgmd = hgmd.get_by_omim()
     orph_diseases = orph.filter_lookup(orph.lookup, omim_dict, rev_hgmd, inheritance)
 
-    # If vcf dir given,  need to check there are at least 2 vcf files
+    # If vcf dir given, need to check there are at least 2 vcf files
     if vcf_path:
         contents = os.listdir(vcf_path)
         vcf_files = filter(lambda x: x.endswith('.vcf'), contents)
         assert len(vcf_files) > 2, "Need at least 2 vcf files"
-     
-    for i in range(num_pairs):
-        # First, get a disease
-        if by_variant:
-            # We do a weighted sample based on the number of associated harmful variants
-            orphanum = weighted_choice(orph_diseases.keys(), 
-                [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])
-            disease = orph_diseases[orphanum]
-        else:
-            # A uniform sample over all diseases
-            orphanum = random.choice(orph_diseases.keys())
-            disease = orph_diseases[orphanum]
+    
+    # Dealing with pairs
+    if num_pairs:
+        for i in range(num_pairs):
+            # First, get a disease
+            if by_variant:
+                # We do a weighted sample based on the number of associated harmful variants
+                orphanum = weighted_choice(orph_diseases.keys(), 
+                    [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])
+                disease = orph_diseases[orphanum]
+            else:
+                # A uniform sample over all diseases
+                orphanum = random.choice(orph_diseases.keys())
+                disease = orph_diseases[orphanum]
 
-        # Next, if we have a vcf dir copy pair
-        if vcf_path:
-            new_pair = copy_vcf(vcf_files, vcf_path, out_path, orphanum, i)
-        else:
-            # Otherwise, name patients based on just disease and iteration (with fake vcf)
-            new_pair = ['First_' + orphanum + '_' + str(i) + '.vcf',
-                    'Second_' + orphanum + '_' + str(i) + '.vcf']
-
-        # Finally, infect both patients with disease
-        for patient in new_pair:
+            # Next, if we have a vcf dir copy pair
             if vcf_path:
-                infect_geno(os.path.join(out_path, patient), disease, rev_hgmd)
-            infect_pheno(os.path.join(out_path, patient), disease, omim_dict, 
-                    hp, imprecision,  default_freq)
+                new_pair = copy_vcf(vcf_files, vcf_path, out_path, orphanum, i, 2)
+            else:
+                # Otherwise, name patients based on just disease and iteration (with fake vcf)
+                new_pair = ['First_' + orphanum + '_' + str(i) + '.vcf',
+                        'Second_' + orphanum + '_' + str(i) + '.vcf']
+
+            # Finally, infect both patients with disease
+            for patient in new_pair:
+                if vcf_path:
+                    infect_geno(os.path.join(out_path, patient), disease, rev_hgmd)
+                infect_pheno(os.path.join(out_path, patient), disease, omim_dict, 
+                        hp, imprecision,  default_freq)
+
+    # Dealing with individual patients
+    if num_patients:
+        for i in range(num_patients):
+            # First, get a disease
+            if by_variant:
+                # We do a weighted sample based on the number of associated harmful variants
+                orphanum = weighted_choice(orph_diseases.keys(), 
+                    [len(rev_hgmd[x.geno[0]]) for x in orph_diseases.itervalues()])
+                disease = orph_diseases[orphanum]
+            else:
+                # A uniform sample over all diseases
+                orphanum = random.choice(orph_diseases.keys())
+                disease = orph_diseases[orphanum]
+            
+            # Next, if we have a vcf dir copy one over 
+            if vcf_path:
+                new_patient = copy_vcf(vcf_files, vcf_path, out_path, orphanum, i, 1)[0]
+            else:
+                # Otherwise, name patient based on just disease and iteration (with fake vcf)
+                new_patient = orphanum + '_' + str(i) + '.vcf'
+
+            # Finally, infect patient with geno and pheno
+            if vcf_path:
+                infect_geno(os.path.join(out_path, new_patient), disease, rev_hgmd)
+            infect_pheno(os.path.join(out_path, new_patient), disease, omim_dict, 
+                    hp, imprecision,default_freq)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
@@ -321,8 +365,11 @@ def parse_args(args):
             help='Directory from which to take .vcf and .vcf.gz')
     parser.add_argument('out_path', metavar='OUT', 
             help='Directory where to put the generated patient files')
-    parser.add_argument('-N', type=int, dest='num_pairs',
-            help='Number of pairs of patients to generate', required=True)
+    parser.add_argument('-P', type=int, dest='num_pairs',
+            help='Number of pairs of patients to generate (choose either'
+            '-N or -P')
+    parser.add_argument('-N', type=int, dest='num_patients',
+            help='Number of patients to generate (choose either -N or -P)')
     parser.add_argument('-I', '--inheritance',nargs='+',
             choices=['AD','AR'], 
             help='Which inheritance pattern sampled diseases should have')

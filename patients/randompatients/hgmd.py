@@ -102,4 +102,3 @@ if __name__ == '__main__':
         hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
     except IOError, e:
         logging.error(e)
-    print "Success!"
