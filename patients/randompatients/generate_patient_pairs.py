@@ -252,16 +252,37 @@ def copy_vcf(vcf_files, vcf_path, out_path, orphanum, i, num_vcf):
         shutil.copy(os.path.join(vcf_path, old), os.path.join(out_path, new))         
     return new_pair
 
-def script(data_path, vcf_path, out_path, num_pairs, num_patients, by_variant, default_freq, 
-        drop_intronic, imprecision, inheritance=None, **kwargs):
-    # First, make sure we're given either a number of patients or number of pairs
-    if not num_pairs and not num_patients:
-        logging.error("Either -N or -P is required\n")
-        sys.exit(1)
-    elif num_pairs and num_patients:
-        logging.error("Use exactly one of -N or -P")
-        sys.exit(1)
+def drop_intronic_variants(hgmd):
+    """Drop all intronic variants in the given hgmd instance
+    
+    Args:
+        hgmd: an hgmd instance
+    """
+    dropped_counter = 0
+    # We make a list of accepted effects
+    accepted = ['FS_DELETION', 'FS_SUBSTITUTION', 'NON_FS_DELETION', 
+            'NON_FS_SUBSTITUTION', 'NONSYNONYMOUS', 'SPLICING', 
+            'STOPGAIN', 'STOPLOSS']
 
+    # Also make a list of rejected effects, so we know when something is totally wrong
+    rejected = ['ERROR', 'INTERGENIC', 'INTRONIC', 'ncRNA_EXONIC', 
+            'ncRNA_SPLICING', 'SYNONYMOUS', 'UTR3', 'UTR5']
+
+    new_entries = []
+    for entry in hgmd.entries:
+        if entry.effect in accepted:
+            new_entries.append(entry)
+        elif entry.effect in rejected:
+            dropped_counter += 1
+        else:
+            logging.error("Entry did not have matched effect %s\n" % entry)
+    logging.warning("%d HGMD variants dropped as intronic\n" % dropped_counter)
+
+    #Finally, reassign
+    hgmd.entries = new_entries
+
+def script(data_path, vcf_path, out_path, generate, num_samples, by_variant, default_freq, 
+        drop_intronic, imprecision, inheritance=None, **kwargs):
     try:
         hgmd, omim_dict, orph, hp = load_data(data_path)
     except IOError, e:
@@ -270,25 +291,7 @@ def script(data_path, vcf_path, out_path, num_pairs, num_patients, by_variant, d
   
     # If we are dropping intronic variants from hgmd, do it now
     if drop_intronic:
-        dropped_counter = 0
-        # We make a list of accepted effects
-        accepted = ['FS_DELETION', 'FS_SUBSTITUTION', 'NON_FS_DELETION', 
-                'NON_FS_SUBSTITUTION', 'NONSYNONYMOUS', 'SPLICING', 
-                'STOPGAIN', 'STOPLOSS']
-
-        # Also make a list of rejected effects, so we know when something is totally wrong
-        rejected = ['ERROR', 'INTERGENIC', 'INTRONIC', 'ncRNA_EXONIC', 
-                'ncRNA_SPLICING', 'SYNONYMOUS', 'UTR3', 'UTR5']
-
-        new_entries = []
-        for entry in hgmd.entries:
-            if entry.effect in accepted:
-                new_entries.append(entry)
-            elif entry.effect in rejected:
-                dropped_counter += 1
-            else:
-                logging.error("Entry did not have matched effect %s\n" % entry)
-        logging.warning("%d HGMD variants dropped as intronic\n" % dropped_counter)
+        drop_intronic_variants(hgmd)
 
     # Set up our corrected lookup
     rev_hgmd = hgmd.get_by_omim()
@@ -301,8 +304,8 @@ def script(data_path, vcf_path, out_path, num_pairs, num_patients, by_variant, d
         assert len(vcf_files) > 2, "Need at least 2 vcf files"
     
     # Dealing with pairs
-    if num_pairs:
-        for i in range(num_pairs):
+    if generate == 'PAIRS':
+        for i in range(num_samples):
             # First, get a disease
             if by_variant:
                 # We do a weighted sample based on the number of associated harmful variants
@@ -330,8 +333,8 @@ def script(data_path, vcf_path, out_path, num_pairs, num_patients, by_variant, d
                         hp, imprecision,  default_freq)
 
     # Dealing with individual patients
-    if num_patients:
-        for i in range(num_patients):
+    if generate == 'PATIENTS':
+        for i in range(num_samples):
             # First, get a disease
             if by_variant:
                 # We do a weighted sample based on the number of associated harmful variants
@@ -365,11 +368,11 @@ def parse_args(args):
             help='Directory from which to take .vcf and .vcf.gz')
     parser.add_argument('out_path', metavar='OUT', 
             help='Directory where to put the generated patient files')
-    parser.add_argument('-P', type=int, dest='num_pairs',
-            help='Number of pairs of patients to generate (choose either'
-            '-N or -P')
-    parser.add_argument('-N', type=int, dest='num_patients',
-            help='Number of patients to generate (choose either -N or -P)')
+    parser.add_argument('--generate', dest='generate',
+            choices=['PATIENTS', 'PAIRS'], default='PAIRS',
+            help='Generate pairs or individuals (defult is pairs)')
+    parser.add_argument('-N', type=int, dest='num_samples',
+            help='Number of samples to generate (patients or pairs)')
     parser.add_argument('-I', '--inheritance',nargs='+',
             choices=['AD','AR'], 
             help='Which inheritance pattern sampled diseases should have')
@@ -384,7 +387,8 @@ def parse_args(args):
     parser.add_argument('-V', dest='by_variant', action='store_true',
             help='Sample diseases weighted by variant, default is uniform')
     parser.add_argument('--logging', default='WARNING',
-            help='Logging level (e.g. DEBUG, ERROR)')
+            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+            help='Logging level')
     return parser.parse_args(args)
 
 def main(args = sys.argv[1:]):
