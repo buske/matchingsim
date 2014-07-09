@@ -23,6 +23,7 @@ def script(res_file, annotate, **kwargs):
         with open(res_file) as res:
             with open(res_file + '.annotated', 'w') as anno:
                 for line in res:
+                    if line.startswith('#'): continue
                     line = line.strip()
                     tokens = line.split('\t')
                     assert len(tokens) > 3, "%s" % line
@@ -39,6 +40,7 @@ def script(res_file, annotate, **kwargs):
         scores = defaultdict(set)
         # Parse pairwise scores
         for line in res:
+            if line.startswith('#'): continue
             line = line.strip()
             tokens = line.split('\t')
             assert len(tokens) >= 3
