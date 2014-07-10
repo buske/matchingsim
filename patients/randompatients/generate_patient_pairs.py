@@ -52,8 +52,12 @@ def add_imprecision(hp, phenotypes):
         except KeyError:
             continue
 
+        # Get as string ids and remove root
+        ancestors = map(lambda x: x.id, ancestors)
+        ancestors.remove('HP:0000118')
+
         # Now randomly add an ancestor
-        new_pheno.add(str(random.choice(ancestors).id))
+        new_pheno.add(random.choice(ancestors))
 
     # Return phenotypes as a list
     return list(new_pheno)
