@@ -23,7 +23,7 @@ def get_last_recessive(path):
     with open(path) as file:
         cont = list(file)
         info = cont[-1].split('\t')
-        if info[-1].strip() == '1|1':
+        if info[-1].strip() == '1|1' or info[-1].strip() == '1/1':
             return cont[-1:]
         else:
             return cont[-2:]
