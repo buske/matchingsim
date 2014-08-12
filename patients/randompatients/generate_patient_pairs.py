@@ -28,6 +28,29 @@ from omim import MIM
 
 __author__ = 'Tal Friedman (talf301@gmail.com)'
 
+def add_noise(num, phenotypes, omim_dict):
+    """Randomly add terms to the given list of phenotpes
+    from our omim diseases
+    
+    Args:
+        num: number of random phenotypes to add
+        phenotypes: list of phenotypes to add noise to
+        omim_dct: a dict of OMIM number -> omim.Disease
+
+    Returns:
+        A list of the phenotypes with noise added.
+    """
+    # List of phenotypes to sample from
+    sample_list = [x for y in omim_dict.itervalues() for x in y.phenotype_freqs]
+
+    # Do sampling
+    sampled_pheno = random.sample(sample_list, num)
+    # Finally combine them and remove repetition
+    phenotypes.extend(sampled_pheno)
+    phenotypes = list(set(phenotypes))
+
+    return phenotypes
+
 def add_imprecision(hp, phenotypes):
     """Randomly add some imprecision by moving terms up the
     tree at random to simulate different language usage
@@ -62,7 +85,7 @@ def add_imprecision(hp, phenotypes):
     # Return phenotypes as a list
     return list(new_pheno)
 
-def sample_phenotypes(omim_dict, orph_disease, hp, imprecision, default_freq=1.0):
+def sample_phenotypes(omim_dict, orph_disease, hp, imprecision, noise, default_freq=1.0):
     """Sample phenotypes randomly from an orphanet disease
 
     Args:
@@ -98,14 +121,19 @@ def sample_phenotypes(omim_dict, orph_disease, hp, imprecision, default_freq=1.0
             if random.random() < freq:
                 phenotypes.append(pheno)
     if phenotypes:
+        # Log the original number of phenotypes
+        orig_len = len(phenotypes)
         # Add imprecision if necessary
         if imprecision:
-           phenotypes = add_imprecision(hp, phenotypes) 
+            phenotypes = add_imprecision(hp, phenotypes) 
+        # Add noise if necessary
+        if noise:
+            phenotypes = add_noise(orig_len/2, phenotypes, omim_dict)
         return phenotypes
     else:
         logging.warning("Random phenotype sampling for %s resulted in"
                 " empty set" % omim_id)
-        return sample_phenotypes(omim_dict, orph_disease, default_freq)
+        return sample_phenotypes(omim_dict, orph_disease, hp, imprecision, noise, default_freq)
 
 def sample_variants(rev_hgmd, orph_disease):
     """Sample variants randomly from an orphanet disease
@@ -146,7 +174,7 @@ def generate_vcf_line(var, hom=False):
     return '%s\n' % '\t'.join([var.chrom, var.loc, '.', var.ref, 
         var.alt, '255', 'PASS', var.info_line, 'GT', gt])
 
-def infect_pheno(patient, orph_disease, omim_dict, hp, imprecision, default_freq):
+def infect_pheno(patient, orph_disease, omim_dict, hp, imprecision, noise, default_freq):
     """Do phenotypic infection by producing a file with a
     list of phenotypes associated with disease
 
@@ -160,7 +188,7 @@ def infect_pheno(patient, orph_disease, omim_dict, hp, imprecision, default_freq
     """
     # Sample phenotypes
     phenotypes = sample_phenotypes(omim_dict, orph_disease, hp,
-            imprecision, default_freq)
+            imprecision, noise, default_freq)
 
     assert patient.endswith('.vcf')
 
@@ -286,7 +314,7 @@ def drop_intronic_variants(hgmd):
     hgmd.entries = new_entries
 
 def script(data_path, vcf_path, out_path, generate, num_samples, by_variant, default_freq, 
-        drop_intronic, imprecision, inheritance=None, **kwargs):
+        drop_intronic, imprecision, noise, inheritance=None, **kwargs):
     try:
         hgmd, omim_dict, orph, hp = load_data(data_path)
     except IOError, e:
@@ -334,7 +362,7 @@ def script(data_path, vcf_path, out_path, generate, num_samples, by_variant, def
                 if vcf_path:
                     infect_geno(os.path.join(out_path, patient), disease, rev_hgmd)
                 infect_pheno(os.path.join(out_path, patient), disease, omim_dict, 
-                        hp, imprecision,  default_freq)
+                        hp, imprecision, noise, default_freq)
 
     # Dealing with individual patients
     if generate == 'PATIENTS':
@@ -361,7 +389,7 @@ def script(data_path, vcf_path, out_path, generate, num_samples, by_variant, def
             if vcf_path:
                 infect_geno(os.path.join(out_path, new_patient), disease, rev_hgmd)
             infect_pheno(os.path.join(out_path, new_patient), disease, omim_dict, 
-                    hp, imprecision,default_freq)
+                    hp, imprecision, noise, default_freq)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
@@ -388,6 +416,8 @@ def parse_args(args):
     parser.add_argument('--imprecision', action='store_true',
             help='Add imprecision of hpo term selection (randomly send'
             'terms to ancestors')
+    parser.add_argument('--noise', action='store_true',
+            help='Add phenotypic noise (random phenotypes')
     parser.add_argument('-V', dest='by_variant', action='store_true',
             help='Sample diseases weighted by variant, default is uniform')
     parser.add_argument('--logging', default='WARNING',
