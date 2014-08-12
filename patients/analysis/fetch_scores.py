@@ -12,6 +12,7 @@ import subprocess
 import annotate_dir
 from collections import defaultdict
 from hgmd import HGMD
+from orpha import Orphanet
 
 def get_last_line(path):
     with open(path) as file:
@@ -69,6 +70,13 @@ def script(vcf_ezr_paths, A, R, D, RD, V, N=None):
         
         if D:
             hgmd = HGMD('/dupa-filer/talf/matchingsim/patients/hgmd_correct.jv.vcf')
+            # Grab orphanet file names and then load orphanet data
+            orphanet_lookup = '/dupa-filer/talf/matchingsim/patients/orphanet_lookup.xml'
+            orphanet_inher = '/dupa-filer/talf/matchingsim/patients/orphanet_inher.xml'
+            orphanet_geno_pheno = '/dupa-filer/talf/matchingsim/patients/orphanet_geno_pheno.xml'
+            orph = Orphanet(orphanet_lookup, orphanet_inher, orphanet_geno_pheno)
+            lookup = orph.lookup
+     
             rev_hgmd = hgmd.get_by_omim()
             Dcounter = defaultdict(lambda:[0,0]) 
 
@@ -77,20 +85,27 @@ def script(vcf_ezr_paths, A, R, D, RD, V, N=None):
             doublecounter = 0
             singlecorr = 0
             doublecorr = 0
-
+        
+        use_orph = False
         for txt in txt_files:
             info = list(open(os.path.join(vcf_ezr_path,txt)))
             rank = info[0].split(' ')[-1].strip() 
+            has_orph = info[-1].startswith('Orphanum')
+            if has_orph:
+                use_orph = True
+
             if RD:
-                singlecounter += len(info) == 4
-                doublecounter += len(info) == 5
-                singlecorr += len(info) == 4 and rank
-                doublecorr += len(info) == 5 and rank
+                single = len(info) == 4 or len(info) == 5 and has_orph
+                double = len(info) == 6 or len(info) == 5 and not has_orph
+                singlecounter += single
+                doublecounter += double
+                singlecorr += single and rank == '1'
+                doublecorr += double and rank == '1'
 
             counter += rank == '1'
 
             if D:
-                id = info[-2].split(' ')[-1].strip()
+                id = info[-1].split(' ')[-1].strip()
                 Dcounter[id][1] += 1
                 Dcounter[id][0] += rank == '1'
                 if len(Dcounter[id]) == 2:
@@ -115,6 +130,9 @@ def script(vcf_ezr_paths, A, R, D, RD, V, N=None):
                 logging.info('Accuracy of entire file: ' + str(float(Acounter)/len(txt_files))+'\n')
         if D: 
             dis = Dcounter.items()
+            if use_orph:
+                for i in range(len(dis)):
+                    dis[i] = (lookup[dis[i][0]].geno[0], dis[i][1])
             if V:
                 dis.sort(key=lambda d: len(rev_hgmd[d[0]]), reverse=True)
             else:
