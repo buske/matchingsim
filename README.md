@@ -1,6 +1,7 @@
 To run the main patient generation code, use patients/randompatients/generate_patient_pairs.py.
 
 The parameters for running this script are as follows:
+
 --data_path PATH, -d PATH: Directory from which to grab required data (hgmd, orphanet, hpo)
 
 --vcf_path PATH: If you are also generating infected vcfs, use this flag to specify the directory where the original vcfs are found. Note there must be at least 2 files to generate pairs.
