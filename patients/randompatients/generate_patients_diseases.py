@@ -50,7 +50,7 @@ def script(data_path, vcf_path, out_path, num_per, drop_intronic, inheritance=No
             if vcf_path:
                 gp.infect_geno(os.path.join(out_path, new_patient), dis, rev_hgmd)
             gp.infect_pheno(os.path.join(out_path, new_patient), dis, omim_dict,
-                    hp, False, 1.0)
+                    hp, False, False, 1.0)
 
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
