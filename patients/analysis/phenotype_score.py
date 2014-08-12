@@ -26,7 +26,7 @@ def script(res_file, annotate, **kwargs):
                     if line.startswith('#'): continue
                     line = line.strip()
                     tokens = line.split('\t')
-                    assert len(tokens) > 3, "%s" % line
+                    assert len(tokens) >= 3, "%s" % line
                     # Check by name signature if they come from same disease
                     if tokens[0].split('_')[-2] == tokens[1].split('_')[-2]:
                         anno.write('\t'.join(['1',line]) + '\n')
