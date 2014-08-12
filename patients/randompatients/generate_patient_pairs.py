@@ -245,10 +245,18 @@ def load_data(data_path):
     """
     # Load hgmd
     hgmd = HGMD(os.path.join(data_path, 'hgmd_correct.jv.vcf'))
-  
-    # Load and filter OMIM into an OMIM number: Disease dict
+    
+    # Load hpo
+    hp = hpo.HPO(os.path.join(data_path, 'hp.obo'))
+    # Filter to phenotypic abnormailities
+    hp.filter_to_descendants('HP:0000118')
+
+    # Load and filter OMIM into an OMIM number: Disease dict, 
+    # Drop everything that isn't a child of 118
     mim = MIM(os.path.join(data_path, 'phenotype_annotation.tab'))
     omim = filter(lambda d:d.db == 'OMIM', mim.diseases)
+    for o in omim:
+        o.phenotype_freqs = {pheno:freq for pheno,freq in o.phenotype_freqs.iteritems() if hp.hps.has_key(pheno)}
     omim_dict = {dis.id:dis for dis in omim}
 
     # Grab orphanet file names and then load orphanet data
@@ -257,11 +265,7 @@ def load_data(data_path):
     orphanet_geno_pheno = os.path.join(data_path, 'orphanet_geno_pheno.xml')
     orph = Orphanet(orphanet_lookup, orphanet_inher, orphanet_geno_pheno)
 
-    # Load hpo
-    hp = hpo.HPO(os.path.join(data_path, 'hp.obo'))
-    # Filter to phenotypic abnormailities
-    hp.filter_to_descendants('HP:0000118')
-
+    
     return hgmd, omim_dict, orph, hp
 
 def copy_vcf(vcf_files, vcf_path, out_path, orphanum, i, num_vcf):
