@@ -398,19 +398,19 @@ def script(data_path, vcf_path, out_path, generate, num_samples, by_variant, def
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
 
-    parser.add_argument('data_path', metavar='DATA', 
+    parser.add_argument('--data_path', '-d', required=True,
             help='Directory from which to grab data files')
     parser.add_argument('--vcf_path', 
             help='Directory from which to take .vcf and .vcf.gz')
-    parser.add_argument('out_path', metavar='OUT', 
+    parser.add_argument('--out_path', '-o', required=True, 
             help='Directory where to put the generated patient files')
     parser.add_argument('--generate', dest='generate',
             choices=['PATIENTS', 'PAIRS'], default='PAIRS',
             help='Generate pairs or individuals (defult is pairs)')
-    parser.add_argument('-N', type=int, dest='num_samples',
+    parser.add_argument('-N', type=int, dest='num_samples', required=True,
             help='Number of samples to generate (patients or pairs)')
     parser.add_argument('-I', '--inheritance',nargs='+',
-            choices=['AD','AR'], 
+            choices=['AD','AR'], required=True,
             help='Which inheritance pattern sampled diseases should have')
     parser.add_argument('-D', '--default_freq', type=float,
             help='Default frequency for phenotype if info not found (default'
