@@ -128,7 +128,7 @@ def sample_phenotypes(omim_dict, orph_disease, hp, imprecision, noise, default_f
             phenotypes = add_imprecision(hp, phenotypes) 
         # Add noise if necessary
         if noise:
-            phenotypes = add_noise(orig_len/2, phenotypes, omim_dict)
+            phenotypes = add_noise(orig_len * noise, phenotypes, omim_dict)
         return phenotypes
     else:
         logging.warning("Random phenotype sampling for %s resulted in"
@@ -398,11 +398,11 @@ def script(data_path, vcf_path, out_path, generate, num_samples, by_variant, def
 def parse_args(args):
     parser = ArgumentParser(description=__doc__.strip())
 
-    parser.add_argument('--data_path', '-d', required=True,
+    parser.add_argument('--data_path', '-d', metavar='DATA', required=True,
             help='Directory from which to grab data files')
     parser.add_argument('--vcf_path', 
-            help='Directory from which to take .vcf and .vcf.gz')
-    parser.add_argument('--out_path', '-o', required=True, 
+            help='Directory from which to take .vcf and .vcf.gz') # 
+    parser.add_argument('--out_path', '-o', metavar='OUT', required=True,
             help='Directory where to put the generated patient files')
     parser.add_argument('--generate', dest='generate',
             choices=['PATIENTS', 'PAIRS'], default='PAIRS',
@@ -420,8 +420,10 @@ def parse_args(args):
     parser.add_argument('--imprecision', action='store_true',
             help='Add imprecision of hpo term selection (randomly send'
             'terms to ancestors')
-    parser.add_argument('--noise', action='store_true',
-            help='Add phenotypic noise (random phenotypes')
+    parser.add_argument('--noise', type=float, default=0.0,
+            help='Add phenotypic noise (random phenotypes). Recommended'
+            'amount is 0.5 (i.e., half of the real amount will be added'
+            'as noise).')
     parser.add_argument('-V', dest='by_variant', action='store_true',
             help='Sample diseases weighted by variant, default is uniform')
     parser.add_argument('--logging', default='WARNING',
