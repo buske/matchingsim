@@ -128,7 +128,7 @@ def sample_phenotypes(omim_dict, orph_disease, hp, imprecision, noise, default_f
             phenotypes = add_imprecision(hp, phenotypes) 
         # Add noise if necessary
         if noise:
-            phenotypes = add_noise(orig_len * noise, phenotypes, omim_dict)
+            phenotypes = add_noise(int(orig_len * noise), phenotypes, omim_dict)
         return phenotypes
     else:
         logging.warning("Random phenotype sampling for %s resulted in"
