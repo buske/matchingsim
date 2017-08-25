@@ -43,7 +43,7 @@ def weighted_choice(choices, weights):
     total = sum(weights)
     threshold = random.uniform(0, total)
     for k, weight in enumerate(weights):
-        theshold -= weight
+        threshold -= weight
         if threshold <= 0:
             return choices[k]
 
